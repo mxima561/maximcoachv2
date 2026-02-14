@@ -1,6 +1,12 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { jwtVerify, createRemoteJWKSet } from "jose";
 import { VoiceSession } from "./session.js";
+import { VoicePipeline } from "./pipeline.js";
+import type {
+  PersonaConfig,
+  ScenarioConfig,
+  DifficultyParams,
+} from "./llm.js";
 
 const PORT = Number(process.env.PORT) || 3002;
 const PING_INTERVAL_MS = 30_000;
@@ -9,6 +15,7 @@ const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET ?? "";
 
 // Active sessions keyed by WebSocket
 const sessions = new Map<WebSocket, VoiceSession>();
+const pipelines = new Map<WebSocket, VoicePipeline>();
 
 const wss = new WebSocketServer({ port: PORT });
 console.log(`Voice WebSocket server listening on port ${PORT}`);
@@ -102,15 +109,20 @@ wss.on("connection", async (ws, req) => {
   ws.on("message", (data, isBinary) => {
     if (isBinary) {
       // Binary = audio data from client microphone
-      handleAudioChunk(session, data as Buffer);
+      handleAudioChunk(ws, session, data as Buffer);
     } else {
       // JSON control messages
-      handleControlMessage(session, data.toString());
+      handleControlMessage(ws, session, data.toString());
     }
   });
 
   ws.on("close", (code, reason) => {
     clearInterval(pingTimer);
+    const pipeline = pipelines.get(ws);
+    if (pipeline) {
+      pipeline.stop();
+      pipelines.delete(ws);
+    }
     session.cleanup();
     sessions.delete(ws);
     console.log(
@@ -123,26 +135,48 @@ wss.on("connection", async (ws, req) => {
   });
 });
 
-function handleAudioChunk(session: VoiceSession, audio: Buffer): void {
+function handleAudioChunk(ws: WebSocket, session: VoiceSession, audio: Buffer): void {
+  const pipeline = pipelines.get(ws);
+
   // If in IDLE, transition to LISTENING on first audio
   if (session.state === "IDLE") {
     session.stateMachine.transition("LISTENING");
   }
 
-  // If in SPEAKING, this is a barge-in
-  if (session.state === "SPEAKING") {
-    session.stateMachine.transition("INTERRUPTION");
-    session.stateMachine.transition("LISTENING");
+  // If in SPEAKING, this is a barge-in — delegate to pipeline
+  if (session.state === "SPEAKING" && pipeline) {
+    pipeline.handleBargeIn();
   }
 
-  // Forward audio to Deepgram STT (US-018 will implement)
+  // Forward audio to Deepgram STT via pipeline
+  if (pipeline) {
+    pipeline.sendAudio(audio);
+  }
 }
 
-function handleControlMessage(session: VoiceSession, raw: string): void {
+function handleControlMessage(ws: WebSocket, session: VoiceSession, raw: string): void {
   try {
     const msg = JSON.parse(raw) as { type: string; [key: string]: unknown };
 
     switch (msg.type) {
+      case "start_session": {
+        // Client sends persona, scenario, difficulty to start the pipeline
+        const persona = msg.persona as PersonaConfig;
+        const scenario = msg.scenario as ScenarioConfig;
+        const difficulty = msg.difficulty as DifficultyParams;
+        const voiceId = (msg.voice_id as string) ?? undefined;
+
+        const pipeline = new VoicePipeline(
+          session,
+          persona,
+          scenario,
+          difficulty,
+          voiceId
+        );
+        pipelines.set(ws, pipeline);
+        pipeline.start();
+        break;
+      }
       case "start_listening":
         session.stateMachine.transition("LISTENING");
         break;
@@ -151,10 +185,16 @@ function handleControlMessage(session: VoiceSession, raw: string): void {
           session.stateMachine.transition("IDLE");
         }
         break;
-      case "end_session":
+      case "end_session": {
+        const pipeline = pipelines.get(ws);
+        if (pipeline) {
+          pipeline.stop();
+          pipelines.delete(ws);
+        }
         session.stateMachine.reset();
         session.sendEvent("session_ended", { session_id: session.sessionId });
         break;
+      }
       default:
         console.warn(
           `[control] session=${session.sessionId} unknown type=${msg.type}`
@@ -170,6 +210,10 @@ function handleControlMessage(session: VoiceSession, raw: string): void {
 // Graceful shutdown
 process.on("SIGTERM", () => {
   console.log("[shutdown] closing all sessions...");
+  for (const [ws, pipeline] of pipelines) {
+    pipeline.stop();
+  }
+  pipelines.clear();
   for (const [ws, session] of sessions) {
     session.cleanup();
     ws.close(1001, "Server shutting down");
