@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClipCapture } from "@/components/clip-capture";
+import { H2HChallenge } from "@/components/h2h-challenge";
 import {
   Card,
   CardContent,
@@ -41,6 +42,7 @@ interface ScorecardData {
     communication: ScorecardCategory;
   };
   coaching_text: string;
+  scenario_type?: string;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -189,12 +191,17 @@ export default function ScorecardPage() {
     async function load() {
       const { data } = await supabase
         .from("scorecards")
-        .select("id, overall_score, scores, coaching_text")
+        .select("id, overall_score, scores, coaching_text, sessions(scenario_type)")
         .eq("session_id", sessionId)
         .single();
 
       if (data) {
-        setScorecard(data as unknown as ScorecardData);
+        const sessions = data.sessions as unknown as { scenario_type: string } | null;
+        setScorecard({
+          ...data,
+          scenario_type: sessions?.scenario_type,
+          scores: data.scores as ScorecardData["scores"],
+        });
       }
       setLoading(false);
     }
@@ -274,6 +281,10 @@ export default function ScorecardPage() {
         <ClipCapture
           sessionId={params.id as string}
           sessionDurationSeconds={600}
+        />
+        <H2HChallenge
+          sessionId={params.id as string}
+          scenarioType={scorecard?.scenario_type ?? "cold_call"}
         />
       </div>
     </div>
