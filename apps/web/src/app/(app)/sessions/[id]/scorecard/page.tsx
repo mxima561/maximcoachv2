@@ -12,6 +12,7 @@ import {
   Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ClipCapture } from "@/components/clip-capture";
 import {
   Card,
   CardContent,
@@ -270,6 +271,10 @@ export default function ScorecardPage() {
           <Share2 className="mr-1 size-4" />
           Share Results
         </Button>
+        <ClipCapture
+          sessionId={params.id as string}
+          sessionDurationSeconds={600}
+        />
       </div>
     </div>
   );
