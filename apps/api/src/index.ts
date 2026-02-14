@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { personaRoutes } from "./routes/persona.js";
 import { scorecardRoutes } from "./routes/scorecard.js";
+import { startWorkers, getQueueHealth } from "./lib/queues.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const WEB_ORIGIN = process.env.WEB_ORIGIN || "http://localhost:3000";
@@ -19,10 +20,17 @@ await app.register(cors, { origin: WEB_ORIGIN });
 await app.register(personaRoutes);
 await app.register(scorecardRoutes);
 
-app.get("/health", async () => ({
-  status: "ok",
-  timestamp: new Date().toISOString(),
-}));
+app.get("/health", async () => {
+  const queues = await getQueueHealth().catch(() => null);
+  return {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    queues,
+  };
+});
+
+// Start BullMQ workers
+startWorkers();
 
 try {
   await app.listen({ port: PORT, host: "0.0.0.0" });
