@@ -4,6 +4,10 @@ import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createServiceClient } from "../lib/supabase.js";
 import { getValkey } from "../lib/valkey.js";
+import {
+  buildDifficultyPromptSection,
+  getUserDifficulty,
+} from "../lib/adaptive-difficulty.js";
 
 // ── Persona output schema ─────────────────────────────────────
 
@@ -51,6 +55,7 @@ const cacheKey = (leadId: string) => `persona:${leadId}`;
 
 const requestSchema = z.object({
   lead_id: z.string().uuid(),
+  user_id: z.string().uuid().optional(),
   difficulty_level: z.number().int().min(1).max(10).optional().default(5),
 });
 
@@ -63,8 +68,21 @@ export async function personaRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: parsed.error.format() });
       }
 
-      const { lead_id, difficulty_level } = parsed.data;
+      const { lead_id, user_id, difficulty_level } = parsed.data;
       const supabase = createServiceClient();
+
+      // If user_id provided, derive difficulty from their ELO rating
+      let effectiveDifficulty = difficulty_level;
+      let eloRating: number | undefined;
+      if (user_id) {
+        const userDiff = await getUserDifficulty(user_id);
+        eloRating = userDiff.rating;
+        // Map ELO to 1-10 scale: 100=1, 1000=5, 1900=10
+        effectiveDifficulty = Math.max(
+          1,
+          Math.min(10, Math.round((userDiff.rating - 100) / 200) + 1),
+        );
+      }
 
       // Check Valkey cache first
       const valkey = getValkey();
@@ -89,7 +107,10 @@ export async function personaRoutes(app: FastifyInstance) {
       }
 
       // Generate persona via Claude Sonnet 4.5
-      const prompt = buildPrompt(lead, difficulty_level);
+      const difficultySection = eloRating
+        ? buildDifficultyPromptSection(eloRating)
+        : "";
+      const prompt = buildPrompt(lead, effectiveDifficulty, difficultySection);
 
       const { text } = await generateText({
         model: anthropic("claude-sonnet-4-5-20250929"),
@@ -143,6 +164,7 @@ export async function personaRoutes(app: FastifyInstance) {
 function buildPrompt(
   lead: Record<string, unknown>,
   difficulty: number,
+  adaptiveDifficultySection?: string,
 ): string {
   const difficultyDesc =
     difficulty <= 3
@@ -171,6 +193,6 @@ Respond with a JSON object containing these fields:
 - background_summary: 2-3 sentence professional summary
 
 Make the persona feel realistic and grounded in the lead's industry and role. The objections should be specific to their context, not generic.
-
+${adaptiveDifficultySection || ""}
 Respond ONLY with the JSON object, no markdown fences or extra text.`;
 }

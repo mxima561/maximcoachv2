@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createServiceClient } from "../lib/supabase.js";
+import { updateEloRating } from "../lib/adaptive-difficulty.js";
 
 // ── Scorecard category schema ─────────────────────────────────
 
@@ -154,7 +155,12 @@ Respond ONLY with the JSON object, no markdown fences.`,
           .send({ error: "Failed to save scorecard" });
       }
 
-      return reply.send(scorecard);
+      // Update ELO rating based on session score
+      const eloResult = await updateEloRating(session.user_id, overall).catch(
+        () => null,
+      );
+
+      return reply.send({ ...scorecard, elo: eloResult });
     },
   );
 }
