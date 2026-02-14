@@ -1,4 +1,9 @@
-export const metadata = {
+import type { Metadata } from "next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import "./globals.css";
+
+export const metadata: Metadata = {
   title: "MaximaCoach",
   description: "AI-Powered Sales Training & Coaching Platform",
 };
@@ -10,7 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
+        {children}
+      </body>
     </html>
   );
 }
