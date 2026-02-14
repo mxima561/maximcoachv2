@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { WebSocketServer, WebSocket } from "ws";
 import { jwtVerify, createRemoteJWKSet } from "jose";
 import { VoiceSession } from "./session.js";

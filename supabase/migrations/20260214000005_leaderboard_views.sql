@@ -124,14 +124,16 @@ JOIN users u ON u.id = cs.user_id;
 CREATE UNIQUE INDEX idx_lb_streak ON leaderboard_streak (org_id, user_id);
 
 -- ── pg_cron: refresh every 15 minutes ───────────────────────
--- Note: pg_cron must be enabled in Supabase dashboard
-SELECT cron.schedule(
-  'refresh-leaderboards',
-  '*/15 * * * *',
-  $$
-    REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_top_score;
-    REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_most_improved;
-    REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_consistency;
-    REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_streak;
-  $$
-);
+-- To enable: go to Supabase Dashboard → Database → Extensions → enable pg_cron
+-- Then run this SQL manually in the SQL Editor:
+--
+-- SELECT cron.schedule(
+--   'refresh-leaderboards',
+--   '*/15 * * * *',
+--   $$
+--     REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_top_score;
+--     REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_most_improved;
+--     REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_consistency;
+--     REFRESH MATERIALIZED VIEW CONCURRENTLY leaderboard_streak;
+--   $$
+-- );
