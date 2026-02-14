@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { personaRoutes } from "./routes/persona.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const WEB_ORIGIN = process.env.WEB_ORIGIN || "http://localhost:3000";
@@ -14,6 +15,7 @@ const app = Fastify({
 });
 
 await app.register(cors, { origin: WEB_ORIGIN });
+await app.register(personaRoutes);
 
 app.get("/health", async () => ({
   status: "ok",
