@@ -6,6 +6,7 @@ import {
   type DifficultyParams,
 } from "./llm.js";
 import { ElevenLabsTTS } from "./tts.js";
+import { CostTracker } from "./cost-tracker.js";
 import type { VoiceSession } from "./session.js";
 
 /**
@@ -20,6 +21,7 @@ export class VoicePipeline {
   private scenario: ScenarioConfig;
   private difficulty: DifficultyParams;
   private startTime = 0;
+  readonly costTracker = new CostTracker();
 
   constructor(
     session: VoiceSession,
@@ -146,8 +148,12 @@ export class VoicePipeline {
     this.stt.close();
     this.tts.flush();
     const duration = Math.round((Date.now() - this.startTime) / 1000);
+    const costs = this.costTracker.getSummary();
     console.log(
-      `[pipeline] session=${this.session.sessionId} stopped after ${duration}s`
+      `[pipeline] session=${this.session.sessionId} stopped after ${duration}s ` +
+        `cost=$${costs.cost_usd} tokens=${costs.tokens_used} ` +
+        `stt=${costs.audio_seconds_stt}s tts=${costs.audio_seconds_tts}s`
     );
+    this.session.sendEvent("session_costs", costs);
   }
 }
