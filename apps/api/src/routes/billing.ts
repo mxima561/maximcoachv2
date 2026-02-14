@@ -3,9 +3,15 @@ import Stripe from "stripe";
 import { z } from "zod";
 import { createServiceClient } from "../lib/supabase.js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-01-28.clover",
-});
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) throw new Error("STRIPE_SECRET_KEY is not configured");
+    _stripe = new Stripe(key, { apiVersion: "2026-01-28.clover" });
+  }
+  return _stripe;
+}
 
 const PLANS = {
   growth: {
@@ -40,6 +46,11 @@ const UsageCheckSchema = z.object({
 });
 
 export async function billingRoutes(app: FastifyInstance) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    app.log.warn("STRIPE_SECRET_KEY not set — billing routes disabled");
+    return;
+  }
+
   const supabase = createServiceClient();
 
   // Create checkout session for new subscription
@@ -61,7 +72,7 @@ export async function billingRoutes(app: FastifyInstance) {
     let customerId = org.stripe_customer_id;
 
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         name: org.name,
         metadata: { org_id: org.id },
       });
@@ -73,7 +84,7 @@ export async function billingRoutes(app: FastifyInstance) {
         .eq("id", org.id);
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
       line_items: [
@@ -109,7 +120,7 @@ export async function billingRoutes(app: FastifyInstance) {
         .send({ error: "No billing account for this organization" });
     }
 
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await getStripe().billingPortal.sessions.create({
       customer: org.stripe_customer_id,
       return_url: body.return_url,
     });
@@ -180,7 +191,7 @@ export async function billingRoutes(app: FastifyInstance) {
 
       let event: Stripe.Event;
       try {
-        event = stripe.webhooks.constructEvent(
+        event = getStripe().webhooks.constructEvent(
           rawBody,
           sig,
           process.env.STRIPE_WEBHOOK_SECRET!,

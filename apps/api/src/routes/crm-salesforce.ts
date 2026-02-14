@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import crypto from "node:crypto";
 import { createServiceClient } from "../lib/supabase.js";
-import { crmSyncQueue } from "../lib/queues.js";
+import { getCrmSyncQueue } from "../lib/queues.js";
 
 const SF_CLIENT_ID = process.env.SALESFORCE_CLIENT_ID || "";
 const SF_CLIENT_SECRET = process.env.SALESFORCE_CLIENT_SECRET || "";
@@ -108,7 +108,7 @@ export async function salesforceRoutes(app: FastifyInstance) {
       if (error) return reply.status(500).send({ error: error.message });
 
       // Enqueue initial sync
-      await crmSyncQueue.add("salesforce-sync", {
+      await getCrmSyncQueue()?.add("salesforce-sync", {
         org_id: parsedState.org_id,
         provider: "salesforce",
       });
@@ -142,7 +142,7 @@ export async function salesforceRoutes(app: FastifyInstance) {
       const { org_id } = request.body;
       if (!org_id) return reply.status(400).send({ error: "org_id required" });
 
-      await crmSyncQueue.add("salesforce-sync", {
+      await getCrmSyncQueue()?.add("salesforce-sync", {
         org_id,
         provider: "salesforce",
       });

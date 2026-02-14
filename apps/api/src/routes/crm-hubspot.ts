@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createServiceClient } from "../lib/supabase.js";
-import { crmSyncQueue } from "../lib/queues.js";
+import { getCrmSyncQueue } from "../lib/queues.js";
 
 const HS_CLIENT_ID = process.env.HUBSPOT_CLIENT_ID || "";
 const HS_CLIENT_SECRET = process.env.HUBSPOT_CLIENT_SECRET || "";
@@ -89,7 +89,7 @@ export async function hubspotRoutes(app: FastifyInstance) {
 
       if (error) return reply.status(500).send({ error: error.message });
 
-      await crmSyncQueue.add("hubspot-sync", {
+      await getCrmSyncQueue()?.add("hubspot-sync", {
         org_id: parsedState.org_id,
         provider: "hubspot",
       });
@@ -125,7 +125,7 @@ export async function hubspotRoutes(app: FastifyInstance) {
       const { org_id } = request.body;
       if (!org_id) return reply.status(400).send({ error: "org_id required" });
 
-      await crmSyncQueue.add("hubspot-sync", {
+      await getCrmSyncQueue()?.add("hubspot-sync", {
         org_id,
         provider: "hubspot",
       });

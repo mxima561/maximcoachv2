@@ -1,12 +1,16 @@
 import { Queue, Worker, type Job } from "bullmq";
 import { syncSalesforce, syncHubSpot } from "./crm-sync.js";
 
-const connection = {
-  host: new URL(process.env.VALKEY_URL || "redis://localhost:6379").hostname,
-  port: Number(
-    new URL(process.env.VALKEY_URL || "redis://localhost:6379").port || 6379,
-  ),
-};
+const VALKEY_URL = process.env.VALKEY_URL || process.env.REDIS_URL;
+
+function getConnection() {
+  if (!VALKEY_URL) return null;
+  const url = new URL(VALKEY_URL);
+  return {
+    host: url.hostname,
+    port: Number(url.port || 6379),
+  };
+}
 
 const defaultJobOptions = {
   attempts: 3,
@@ -15,26 +19,42 @@ const defaultJobOptions = {
   removeOnFail: 500,
 };
 
-// ── Queues ────────────────────────────────────────────────────
+// ── Lazy queue accessors ──────────────────────────────────────
 
-export const crmSyncQueue = new Queue("crm-sync", {
-  connection,
-  defaultJobOptions,
-});
+let _crmSyncQueue: Queue | null = null;
+let _reportsQueue: Queue | null = null;
+let _emailQueue: Queue | null = null;
 
-export const reportsQueue = new Queue("reports", {
-  connection,
-  defaultJobOptions,
-});
+export function getCrmSyncQueue(): Queue | null {
+  const connection = getConnection();
+  if (!connection) return null;
+  if (!_crmSyncQueue) _crmSyncQueue = new Queue("crm-sync", { connection, defaultJobOptions });
+  return _crmSyncQueue;
+}
 
-export const emailQueue = new Queue("email", {
-  connection,
-  defaultJobOptions,
-});
+export function getReportsQueue(): Queue | null {
+  const connection = getConnection();
+  if (!connection) return null;
+  if (!_reportsQueue) _reportsQueue = new Queue("reports", { connection, defaultJobOptions });
+  return _reportsQueue;
+}
+
+export function getEmailQueue(): Queue | null {
+  const connection = getConnection();
+  if (!connection) return null;
+  if (!_emailQueue) _emailQueue = new Queue("email", { connection, defaultJobOptions });
+  return _emailQueue;
+}
 
 // ── Workers ───────────────────────────────────────────────────
 
 export function startWorkers() {
+  const connection = getConnection();
+  if (!connection) {
+    console.log("[workers] No VALKEY_URL/REDIS_URL configured — BullMQ workers disabled");
+    return null;
+  }
+
   const crmWorker = new Worker(
     "crm-sync",
     async (job: Job) => {
@@ -61,7 +81,6 @@ export function startWorkers() {
     "reports",
     async (job: Job) => {
       console.log(`[reports] Processing job ${job.id}`, job.data);
-      // Placeholder: report generation logic
     },
     { connection },
   );
@@ -70,7 +89,6 @@ export function startWorkers() {
     "email",
     async (job: Job) => {
       console.log(`[email] Processing job ${job.id}`, job.data);
-      // Placeholder: email sending logic
     },
     { connection },
   );
@@ -95,10 +113,18 @@ export function startWorkers() {
 // ── Health check ──────────────────────────────────────────────
 
 export async function getQueueHealth() {
+  const crm = getCrmSyncQueue();
+  const reports = getReportsQueue();
+  const email = getEmailQueue();
+
+  if (!crm || !reports || !email) {
+    return { status: "disabled", reason: "No Redis/Valkey configured" };
+  }
+
   const [crmCounts, reportCounts, emailCounts] = await Promise.all([
-    crmSyncQueue.getJobCounts("waiting", "active", "failed"),
-    reportsQueue.getJobCounts("waiting", "active", "failed"),
-    emailQueue.getJobCounts("waiting", "active", "failed"),
+    crm.getJobCounts("waiting", "active", "failed"),
+    reports.getJobCounts("waiting", "active", "failed"),
+    email.getJobCounts("waiting", "active", "failed"),
   ]);
 
   return {
