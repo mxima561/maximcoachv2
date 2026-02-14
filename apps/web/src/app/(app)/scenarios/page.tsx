@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Phone,
   Search,
@@ -8,6 +10,8 @@ import {
   Handshake,
   Clock,
   BarChart3,
+  Plus,
+  Sparkles,
 } from "lucide-react";
 import {
   Card,
@@ -17,6 +21,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 
 const SCENARIOS = [
   {
@@ -66,8 +72,45 @@ function DifficultyBadge({ level }: { level: string }) {
   return <Badge variant={variant}>{level}</Badge>;
 }
 
+interface CustomScenario {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  industry: string;
+}
+
 export default function ScenariosPage() {
   const router = useRouter();
+  const supabase = createClient();
+  const [customScenarios, setCustomScenarios] = useState<CustomScenario[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("users")
+        .select("org_id")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.org_id) return;
+
+      const { data } = await supabase
+        .from("scenarios")
+        .select("id, name, description, type, industry")
+        .eq("org_id", profile.org_id)
+        .eq("is_custom", true)
+        .order("created_at", { ascending: false });
+
+      setCustomScenarios(data ?? []);
+    }
+    load();
+  }, []);
 
   function handleSelect(scenarioType: string) {
     router.push(`/simulations/new?scenario=${scenarioType}`);
@@ -75,12 +118,20 @@ export default function ScenariosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Scenarios</h1>
-        <p className="text-muted-foreground">
-          Choose a scenario type to practice. Each focuses on different sales
-          skills.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Scenarios</h1>
+          <p className="text-muted-foreground">
+            Choose a scenario type to practice. Each focuses on different sales
+            skills.
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/scenarios/new">
+            <Plus className="mr-2 size-4" />
+            Custom Scenario
+          </Link>
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -130,6 +181,45 @@ export default function ScenariosPage() {
           );
         })}
       </div>
+
+      {/* Custom scenarios */}
+      {customScenarios.length > 0 && (
+        <>
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-primary" />
+            <h2 className="text-lg font-semibold">Custom Scenarios</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {customScenarios.map((cs) => (
+              <Card
+                key={cs.id}
+                className="cursor-pointer transition-shadow hover:shadow-md"
+                onClick={() => handleSelect(cs.type)}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{cs.name}</CardTitle>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge variant="outline">
+                          {cs.type.replace("_", " ")}
+                        </Badge>
+                        <Badge variant="secondary">{cs.industry}</Badge>
+                      </div>
+                    </div>
+                    <Badge className="bg-primary/10 text-primary">Custom</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="line-clamp-2">
+                    {cs.description}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
