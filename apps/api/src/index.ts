@@ -5,6 +5,7 @@ import { scorecardRoutes } from "./routes/scorecard.js";
 import { challengeRoutes } from "./routes/challenges.js";
 import { salesforceRoutes } from "./routes/crm-salesforce.js";
 import { hubspotRoutes } from "./routes/crm-hubspot.js";
+import { billingRoutes } from "./routes/billing.js";
 import { startWorkers, getQueueHealth } from "./lib/queues.js";
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -25,6 +26,7 @@ await app.register(scorecardRoutes);
 await app.register(challengeRoutes);
 await app.register(salesforceRoutes);
 await app.register(hubspotRoutes);
+await app.register(billingRoutes);
 
 app.get("/health", async () => {
   const queues = await getQueueHealth().catch(() => null);
