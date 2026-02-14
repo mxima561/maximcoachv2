@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import { personaRoutes } from "./routes/persona.js";
 import { scorecardRoutes } from "./routes/scorecard.js";
 import { challengeRoutes } from "./routes/challenges.js";
+import { salesforceRoutes } from "./routes/crm-salesforce.js";
 import { startWorkers, getQueueHealth } from "./lib/queues.js";
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -21,6 +22,7 @@ await app.register(cors, { origin: WEB_ORIGIN });
 await app.register(personaRoutes);
 await app.register(scorecardRoutes);
 await app.register(challengeRoutes);
+await app.register(salesforceRoutes);
 
 app.get("/health", async () => {
   const queues = await getQueueHealth().catch(() => null);

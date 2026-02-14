@@ -1,4 +1,5 @@
 import { Queue, Worker, type Job } from "bullmq";
+import { syncSalesforce, syncHubSpot } from "./crm-sync.js";
 
 const connection = {
   host: new URL(process.env.VALKEY_URL || "redis://localhost:6379").hostname,
@@ -37,8 +38,21 @@ export function startWorkers() {
   const crmWorker = new Worker(
     "crm-sync",
     async (job: Job) => {
-      console.log(`[crm-sync] Processing job ${job.id}`, job.data);
-      // Placeholder: CRM sync logic will be implemented in US-046/US-047
+      const { org_id, provider } = job.data as {
+        org_id: string;
+        provider: string;
+      };
+      console.log(`[crm-sync] Syncing ${provider} for org ${org_id}`);
+
+      if (provider === "salesforce") {
+        const result = await syncSalesforce(org_id);
+        console.log(`[crm-sync] Salesforce: synced ${result.synced} records`);
+      } else if (provider === "hubspot") {
+        const result = await syncHubSpot(org_id);
+        console.log(`[crm-sync] HubSpot: synced ${result.synced} records`);
+      } else {
+        console.warn(`[crm-sync] Unknown provider: ${provider}`);
+      }
     },
     { connection },
   );
