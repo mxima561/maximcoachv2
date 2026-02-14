@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@maxima/shared": "workspace:*",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.95.3",
     "@tailwindcss/postcss": "^4.1.18",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
