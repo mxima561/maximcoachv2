@@ -7,5 +7,8 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
+| #1668 | 12:20 PM | 🟣 | Shared package index exports constants and schemas | ~281 |
+| #1667 | 12:19 PM | 🟣 | Zod 4 schemas created for all domain models | ~598 |
+| #1666 | " | 🟣 | Shared constants and types defined for domain model | ~393 |
 | #1656 | 12:17 PM | 🟣 | Shared package entry point created with placeholder | ~227 |
 </claude-mem-context>
