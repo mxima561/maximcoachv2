@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PageTransition } from "@/components/page-transition";
 import { Providers } from "@/components/providers";
+import { TrialBanner } from "@/components/trial-banner";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset className="flex-1 overflow-auto">
+            <TrialBanner />
             <main className="p-6">
               <Suspense fallback={<PageFallback />}>
                 <PageTransition>{children}</PageTransition>
