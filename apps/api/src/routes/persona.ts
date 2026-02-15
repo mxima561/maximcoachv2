@@ -108,7 +108,7 @@ export async function personaRoutes(app: FastifyInstance) {
         return reply.status(404).send({ error: "Lead not found" });
       }
 
-      // Generate persona via Claude Sonnet 4.5
+      // Generate persona via OpenAI
       const difficultySection = eloRating
         ? buildDifficultyPromptSection(eloRating)
         : "";

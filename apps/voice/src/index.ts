@@ -22,7 +22,7 @@ const pipelines = new Map<WebSocket, VoicePipeline>();
 const requiredKeys = [
   ["DEEPGRAM_API_KEY", process.env.DEEPGRAM_API_KEY],
   ["ELEVENLABS_API_KEY", process.env.ELEVENLABS_API_KEY],
-  ["ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY],
+  ["OPENAI_API_KEY", process.env.OPENAI_API_KEY],
 ] as const;
 const missingKeys = requiredKeys.filter(([, v]) => !v).map(([k]) => k);
 if (missingKeys.length > 0) {

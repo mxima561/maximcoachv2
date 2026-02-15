@@ -1,8 +1,8 @@
 import { streamText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import type { VoiceSession, ConversationTurn } from "./session.js";
 
-const MODEL_ID = "claude-sonnet-4-20250514";
+const MODEL_ID = "gpt-4o";
 const MAX_HISTORY_TURNS = 20;
 const MAX_TOKENS = 1024;
 const MAX_RETRIES = 2;
@@ -93,7 +93,7 @@ export async function generateResponse(
   const messages = historyToMessages(session.getRecentHistory(MAX_HISTORY_TURNS));
 
   const { textStream } = streamText({
-    model: anthropic(MODEL_ID),
+    model: openai(MODEL_ID),
     system: systemPrompt,
     messages,
     maxOutputTokens: MAX_TOKENS,

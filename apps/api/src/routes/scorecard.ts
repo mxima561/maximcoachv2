@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { generateText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { createServiceClient } from "../lib/supabase.js";
 import { updateEloRating } from "../lib/adaptive-difficulty.js";
 
@@ -85,7 +85,7 @@ export async function scorecardRoutes(app: FastifyInstance) {
         return reply.status(404).send({ error: "Transcript not found" });
       }
 
-      // Generate scorecard via Claude
+      // Generate scorecard via OpenAI
       const messages = transcript.messages as Array<{
         role: string;
         content: string;
@@ -96,7 +96,7 @@ export async function scorecardRoutes(app: FastifyInstance) {
         .join("\n");
 
       const { text } = await generateText({
-        model: anthropic("claude-sonnet-4-20250514"),
+        model: openai("gpt-4o"),
         system: `You are an expert sales coach scoring a simulated sales conversation.
 Score the sales rep across 5 categories (0-100 each). Be constructive but honest.
 Respond with valid JSON matching the requested schema.`,

@@ -11,7 +11,7 @@ import type { VoiceSession } from "./session.js";
 
 /**
  * VoicePipeline wires the full loop:
- * Browser mic → Deepgram STT → Claude LLM → ElevenLabs TTS → Browser speaker
+ * Browser mic → Deepgram STT → OpenAI LLM → ElevenLabs TTS → Browser speaker
  */
 export class VoicePipeline {
   private session: VoiceSession;

@@ -22,7 +22,7 @@ const FEATURES = [
     icon: Brain,
     title: "AI Coaching",
     description:
-      "Get scored across 5 key categories with personalized coaching tips after every session. Powered by Claude AI for nuanced feedback.",
+      "Get scored across 5 key categories with personalized coaching tips after every session. Powered by AI for nuanced feedback.",
   },
   {
     icon: Trophy,
