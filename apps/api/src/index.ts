@@ -9,6 +9,7 @@ import { hubspotRoutes } from "./routes/crm-hubspot.js";
 import { billingRoutes } from "./routes/billing.js";
 import { conversationTokenRoutes } from "./routes/conversation-token.js";
 import { trialRoutes } from "./routes/trial.js";
+import { sessionRoutes } from "./routes/sessions.js";
 import { startWorkers, getQueueHealth } from "./lib/queues.js";
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -36,6 +37,7 @@ await app.register(hubspotRoutes);
 await app.register(billingRoutes);
 await app.register(conversationTokenRoutes);
 await app.register(trialRoutes);
+await app.register(sessionRoutes);
 
 app.get("/health", async () => {
   const queues = await getQueueHealth().catch(() => null);
