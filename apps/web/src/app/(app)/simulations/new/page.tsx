@@ -153,10 +153,16 @@ export default function SimulationLaunchPage() {
     setGeneratingPersona(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
       const res = await fetch(`${apiUrl}/api/personas/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
         body: JSON.stringify({ lead_id: selectedLead.id }),
       });
 
@@ -173,9 +179,31 @@ export default function SimulationLaunchPage() {
     if (!selectedLead || !selectedScenario || !persona) return;
     setStartingSession(true);
 
+    // Get user and org_id for session insert (required by RLS + NOT NULL)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setStartingSession(false);
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("users")
+      .select("org_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.org_id) {
+      setStartingSession(false);
+      return;
+    }
+
     const { data: session } = await supabase
       .from("sessions")
       .insert({
+        user_id: user.id,
+        org_id: profile.org_id,
         persona_id: persona.id,
         scenario_type: selectedScenario,
         status: "active",

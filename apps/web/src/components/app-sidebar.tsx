@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -7,7 +8,6 @@ import {
   Mic,
   Users,
   History,
-  ClipboardCheck,
   Settings,
   UsersRound,
   LogOut,
@@ -36,13 +36,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
 
 const NAV_GROUPS = [
   {
     label: "Main",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { title: "Simulations", href: "/simulations", icon: Mic },
+      { title: "Simulations", href: "/simulations/new", icon: Mic },
     ],
   },
   {
@@ -50,14 +51,13 @@ const NAV_GROUPS = [
     items: [
       { title: "Leads", href: "/leads", icon: Users },
       { title: "Sessions", href: "/sessions", icon: History },
-      { title: "Scorecards", href: "/scorecards", icon: ClipboardCheck },
     ],
   },
   {
     label: "Admin",
     items: [
-      { title: "Settings", href: "/settings", icon: Settings },
-      { title: "Team", href: "/manager/team", icon: UsersRound },
+      { title: "Integrations", href: "/settings/integrations", icon: Settings },
+      { title: "Team", href: "/manager", icon: UsersRound },
     ],
   },
 ];
@@ -66,6 +66,22 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const [userName, setUserName] = useState("User");
+  const [userInitial, setUserInitial] = useState("U");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const name =
+          (user.user_metadata?.full_name as string) ??
+          user.email?.split("@")[0] ??
+          "User";
+        setUserName(name);
+        setUserInitial(name.charAt(0).toUpperCase());
+      }
+    });
+  }, []);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -138,17 +154,17 @@ export function AppSidebar() {
             <SidebarMenuButton className="w-full cursor-pointer">
               <Avatar className="size-6">
                 <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                  U
+                  {userInitial}
                 </AvatarFallback>
               </Avatar>
               {!isCollapsed && (
-                <span className="truncate text-sm">User</span>
+                <span className="truncate text-sm">{userName}</span>
               )}
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-48">
             <DropdownMenuItem asChild>
-              <Link href="/settings">
+              <Link href="/settings/integrations">
                 <Settings className="mr-2 size-4" />
                 Settings
               </Link>

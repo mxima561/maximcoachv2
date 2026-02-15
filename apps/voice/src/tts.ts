@@ -26,6 +26,10 @@ export class ElevenLabsTTS {
    */
   async speak(text: string): Promise<void> {
     if (this.aborted) return;
+    if (!ELEVENLABS_API_KEY) {
+      console.error(`[tts] session=${this.session.sessionId} ELEVENLABS_API_KEY not set`);
+      return;
+    }
 
     try {
       const audioStream = await this.client.textToSpeech.convertAsStream(

@@ -12,11 +12,25 @@ import type {
 const PORT = Number(process.env.PORT) || 3002;
 const PING_INTERVAL_MS = 30_000;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET ?? "";
+const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET ?? process.env.JWT_SECRET ?? "";
 
 // Active sessions keyed by WebSocket
 const sessions = new Map<WebSocket, VoiceSession>();
 const pipelines = new Map<WebSocket, VoicePipeline>();
+
+// Validate required API keys at startup
+const requiredKeys = [
+  ["DEEPGRAM_API_KEY", process.env.DEEPGRAM_API_KEY],
+  ["ELEVENLABS_API_KEY", process.env.ELEVENLABS_API_KEY],
+  ["ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY],
+] as const;
+const missingKeys = requiredKeys.filter(([, v]) => !v).map(([k]) => k);
+if (missingKeys.length > 0) {
+  console.warn(`[voice] WARNING: Missing API keys: ${missingKeys.join(", ")}. Pipeline calls will fail.`);
+}
+if (!SUPABASE_JWT_SECRET && !SUPABASE_URL) {
+  console.warn("[voice] WARNING: No SUPABASE_JWT_SECRET or NEXT_PUBLIC_SUPABASE_URL — JWT auth will reject all tokens.");
+}
 
 const wss = new WebSocketServer({ port: PORT });
 console.log(`Voice WebSocket server listening on port ${PORT}`);

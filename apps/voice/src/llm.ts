@@ -107,9 +107,9 @@ export async function generateResponse(
     fullResponse += chunk;
     sentenceBuffer += chunk;
 
-    // Detect sentence boundaries for TTS chunking
-    const sentenceEnd = sentenceBuffer.search(/[.!?]\s/);
-    if (sentenceEnd !== -1) {
+    // Extract all complete sentences from the buffer
+    let sentenceEnd: number;
+    while ((sentenceEnd = sentenceBuffer.search(/[.!?]\s/)) !== -1) {
       const sentence = sentenceBuffer.slice(0, sentenceEnd + 1).trim();
       sentenceBuffer = sentenceBuffer.slice(sentenceEnd + 2);
       if (sentence) {

@@ -19,6 +19,7 @@ import {
   type TranscriptMessage,
 } from "@/components/simulation-transcript";
 import type { OrbState } from "@/components/voice-orb";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SimulationPage() {
   const params = useParams();
@@ -61,53 +62,63 @@ export default function SimulationPage() {
 
   // Connect WebSocket
   useEffect(() => {
+    const supabase = createClient();
     const voiceUrl =
       process.env.NEXT_PUBLIC_VOICE_URL || "ws://localhost:3002";
-    const ws = new WebSocket(`${voiceUrl}?session_id=${sessionId}`);
-    wsRef.current = ws;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data as string) as {
-          type: string;
-          state?: OrbState;
-          message?: TranscriptMessage;
-        };
+    async function connect() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+      const ws = new WebSocket(
+        `${voiceUrl}?session_id=${sessionId}&token=${encodeURIComponent(token)}`
+      );
+      wsRef.current = ws;
 
-        if (data.type === "state_change" && data.state) {
-          setOrbState(data.state);
-        }
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data as string) as {
+            type: string;
+            state?: OrbState;
+            message?: TranscriptMessage;
+          };
 
-        if (data.type === "transcript" && data.message) {
-          setMessages((prev) => {
-            // Update interim message or add new
-            if (data.message!.interim) {
-              const existing = prev.findIndex(
-                (m) => m.interim && m.role === data.message!.role,
-              );
-              if (existing >= 0) {
-                const updated = [...prev];
-                updated[existing] = data.message!;
-                return updated;
+          if (data.type === "state_change" && data.state) {
+            setOrbState(data.state);
+          }
+
+          if (data.type === "transcript" && data.message) {
+            setMessages((prev) => {
+              // Update interim message or add new
+              if (data.message!.interim) {
+                const existing = prev.findIndex(
+                  (m) => m.interim && m.role === data.message!.role,
+                );
+                if (existing >= 0) {
+                  const updated = [...prev];
+                  updated[existing] = data.message!;
+                  return updated;
+                }
               }
-            }
-            // Remove interim of same role when final arrives
-            if (!data.message!.interim) {
-              const filtered = prev.filter(
-                (m) => !(m.interim && m.role === data.message!.role),
-              );
-              return [...filtered, data.message!];
-            }
-            return [...prev, data.message!];
-          });
+              // Remove interim of same role when final arrives
+              if (!data.message!.interim) {
+                const filtered = prev.filter(
+                  (m) => !(m.interim && m.role === data.message!.role),
+                );
+                return [...filtered, data.message!];
+              }
+              return [...prev, data.message!];
+            });
+          }
+        } catch {
+          // Binary audio data from TTS — ignore in transcript handler
         }
-      } catch {
-        // Binary audio data from TTS — ignore in transcript handler
-      }
-    };
+      };
+    }
+
+    connect();
 
     return () => {
-      ws.close();
+      wsRef.current?.close();
     };
   }, [sessionId]);
 

@@ -33,6 +33,11 @@ export class DeepgramSTT {
   }
 
   start(): void {
+    if (!DEEPGRAM_API_KEY) {
+      console.error(`[deepgram] session=${this.session.sessionId} DEEPGRAM_API_KEY not set`);
+      this.session.sendEvent("error", { message: "STT service not configured" });
+      return;
+    }
     const deepgram = createClient(DEEPGRAM_API_KEY);
 
     this.connection = deepgram.listen.live({

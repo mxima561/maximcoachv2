@@ -86,13 +86,15 @@ export async function personaRoutes(app: FastifyInstance) {
 
       // Check Valkey cache first
       const valkey = getValkey();
-      const cached = await valkey.get(cacheKey(lead_id)).catch(() => null);
-      if (cached) {
-        const cachedPersona = JSON.parse(cached) as {
-          id: string;
-          persona_json: PersonaOutput;
-        };
-        return reply.send(cachedPersona);
+      if (valkey) {
+        const cached = await valkey.get(cacheKey(lead_id)).catch(() => null);
+        if (cached) {
+          const cachedPersona = JSON.parse(cached) as {
+            id: string;
+            persona_json: PersonaOutput;
+          };
+          return reply.send(cachedPersona);
+        }
       }
 
       // Fetch lead data
@@ -150,9 +152,11 @@ export async function personaRoutes(app: FastifyInstance) {
       }
 
       // Cache in Valkey
-      await valkey
-        .set(cacheKey(lead_id), JSON.stringify(persona), "EX", CACHE_TTL)
-        .catch(() => {});
+      if (valkey) {
+        await valkey
+          .set(cacheKey(lead_id), JSON.stringify(persona), "EX", CACHE_TTL)
+          .catch(() => {});
+      }
 
       return reply.send(persona);
     },

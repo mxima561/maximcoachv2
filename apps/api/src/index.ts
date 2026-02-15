@@ -21,7 +21,11 @@ const app = Fastify({
   },
 });
 
-await app.register(cors, { origin: WEB_ORIGIN });
+await app.register(cors, {
+  origin: WEB_ORIGIN,
+  methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  credentials: true,
+});
 await app.register(personaRoutes);
 await app.register(scorecardRoutes);
 await app.register(challengeRoutes);

@@ -21,6 +21,7 @@ export class VoicePipeline {
   private scenario: ScenarioConfig;
   private difficulty: DifficultyParams;
   private startTime = 0;
+  private processing = false;
   readonly costTracker = new CostTracker();
 
   constructor(
@@ -86,12 +87,20 @@ export class VoicePipeline {
     const { transcript } = result;
     if (!transcript.trim()) return;
 
+    // Guard against concurrent processing (e.g. rapid final transcripts)
+    if (this.processing) {
+      console.warn(`[pipeline] session=${this.session.sessionId} dropping transcript — already processing`);
+      return;
+    }
+    this.processing = true;
+
     const sttDone = Date.now();
 
     // Transition: LISTENING → PROCESSING
     this.session.stateMachine.transition("PROCESSING");
 
-    // Collect sentences from LLM stream
+    // Queue of TTS promises to await sequentially
+    const ttsQueue: Promise<void>[] = [];
     const sentences: string[] = [];
     let firstSentenceTime = 0;
 
@@ -109,25 +118,30 @@ export class VoicePipeline {
           if (sentences.length === 1) {
             firstSentenceTime = Date.now();
             this.session.stateMachine.transition("SPEAKING");
-
-            // Start speaking the first sentence immediately
-            this.tts.speak(sentence);
-          } else {
-            // Queue subsequent sentences
-            this.tts.speak(sentence);
           }
+
+          // Queue TTS — each speak() awaits the previous one finishing
+          const prev = ttsQueue[ttsQueue.length - 1] ?? Promise.resolve();
+          ttsQueue.push(prev.then(() => this.tts.speak(sentence)));
         }
       );
 
+      // Wait for all TTS audio to finish sending
+      if (ttsQueue.length > 0) {
+        await ttsQueue[ttsQueue.length - 1];
+      }
+
       // Log latency metrics
-      const totalLatency = firstSentenceTime - sttDone;
-      console.log(
-        `[pipeline] session=${this.session.sessionId} ` +
-          `latency=${totalLatency}ms sentences=${sentences.length}`
-      );
-      this.session.sendEvent("latency", {
-        stt_to_first_audio_ms: totalLatency,
-      });
+      if (firstSentenceTime > 0) {
+        const totalLatency = firstSentenceTime - sttDone;
+        console.log(
+          `[pipeline] session=${this.session.sessionId} ` +
+            `latency=${totalLatency}ms sentences=${sentences.length}`
+        );
+        this.session.sendEvent("latency", {
+          stt_to_first_audio_ms: totalLatency,
+        });
+      }
     } catch (err) {
       console.error(
         `[pipeline] session=${this.session.sessionId} LLM error`,
@@ -139,6 +153,7 @@ export class VoicePipeline {
     }
 
     // After all TTS is done, transition back to IDLE
+    this.processing = false;
     if (this.session.state === "SPEAKING") {
       this.session.stateMachine.transition("IDLE");
     }

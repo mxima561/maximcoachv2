@@ -76,13 +76,13 @@ export default function LandingPage() {
               Pricing
             </a>
             <Link
-              href="/auth/login"
+              href="/login"
               className="text-sm font-medium text-foreground hover:text-primary"
             >
               Sign In
             </Link>
             <Link
-              href="/auth/signup"
+              href="/signup"
               className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Start Free Trial
@@ -110,7 +110,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link
-              href="/auth/signup"
+              href="/signup"
               className="inline-flex h-12 items-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Start Free Trial
@@ -216,7 +216,7 @@ export default function LandingPage() {
                 <span className="text-muted-foreground">/rep/month</span>
               </div>
               <Link
-                href="/auth/signup?plan=growth"
+                href="/signup?plan=growth"
                 className="mt-6 flex h-10 w-full items-center justify-center rounded-md border text-sm font-medium transition-colors hover:bg-accent"
               >
                 Start Free Trial
@@ -246,7 +246,7 @@ export default function LandingPage() {
                 <span className="text-muted-foreground">/rep/month</span>
               </div>
               <Link
-                href="/auth/signup?plan=pro"
+                href="/signup?plan=pro"
                 className="mt-6 flex h-10 w-full items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Start Free Trial

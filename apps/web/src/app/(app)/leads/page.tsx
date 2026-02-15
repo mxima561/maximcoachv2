@@ -21,7 +21,7 @@ interface Lead {
   company: string;
   title: string;
   industry: string;
-  source: string;
+  crm_source: string;
   created_at: string;
 }
 
@@ -61,11 +61,11 @@ const columns: ColumnDef<Lead, unknown>[] = [
     enableSorting: true,
   },
   {
-    accessorKey: "source",
+    accessorKey: "crm_source",
     header: "CRM Source",
     enableSorting: false,
     cell: ({ row }) => {
-      const source = row.getValue("source") as string;
+      const source = row.getValue("crm_source") as string;
       return (
         <Badge
           variant="secondary"
@@ -99,7 +99,7 @@ export default function LeadsPage() {
     async function fetchLeads() {
       const { data } = await supabase
         .from("leads")
-        .select("id, name, company, title, industry, source, created_at")
+        .select("id, name, company, title, industry, crm_source, created_at")
         .order("created_at", { ascending: false });
       setLeads((data as Lead[]) ?? []);
       setLoading(false);
