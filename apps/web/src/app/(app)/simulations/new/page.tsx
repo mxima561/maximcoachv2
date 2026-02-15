@@ -52,39 +52,39 @@ const SCENARIOS: {
   difficulty: string;
   estimatedMinutes: number;
 }[] = [
-  {
-    type: "cold_call",
-    name: "Cold Call",
-    description: "Practice cold outreach and grabbing attention quickly.",
-    icon: Phone,
-    difficulty: "Medium",
-    estimatedMinutes: 8,
-  },
-  {
-    type: "discovery",
-    name: "Discovery",
-    description: "Uncover pain points with strategic questioning.",
-    icon: Search,
-    difficulty: "Medium",
-    estimatedMinutes: 12,
-  },
-  {
-    type: "objection_handling",
-    name: "Objection Handling",
-    description: "Navigate price, competitor, and timing objections.",
-    icon: ShieldAlert,
-    difficulty: "Hard",
-    estimatedMinutes: 10,
-  },
-  {
-    type: "closing",
-    name: "Closing",
-    description: "Secure commitment and handle last-minute hesitation.",
-    icon: Handshake,
-    difficulty: "Hard",
-    estimatedMinutes: 10,
-  },
-];
+    {
+      type: "cold_call",
+      name: "Cold Call",
+      description: "Practice cold outreach and grabbing attention quickly.",
+      icon: Phone,
+      difficulty: "Medium",
+      estimatedMinutes: 8,
+    },
+    {
+      type: "discovery",
+      name: "Discovery",
+      description: "Uncover pain points with strategic questioning.",
+      icon: Search,
+      difficulty: "Medium",
+      estimatedMinutes: 12,
+    },
+    {
+      type: "objection_handling",
+      name: "Objection Handling",
+      description: "Navigate price, competitor, and timing objections.",
+      icon: ShieldAlert,
+      difficulty: "Hard",
+      estimatedMinutes: 10,
+    },
+    {
+      type: "closing",
+      name: "Closing",
+      description: "Secure commitment and handle last-minute hesitation.",
+      icon: Handshake,
+      difficulty: "Hard",
+      estimatedMinutes: 10,
+    },
+  ];
 
 // ── Component ─────────────────────────────────────────────────
 
@@ -149,7 +149,7 @@ export default function SimulationLaunchPage() {
   );
 
   async function handleGeneratePersona() {
-    if (!selectedLead) return;
+    if (!selectedLead || !selectedScenario) return;
     setGeneratingPersona(true);
 
     try {
@@ -169,14 +169,30 @@ export default function SimulationLaunchPage() {
       if (res.ok) {
         const data = (await res.json()) as PersonaResult;
         setPersona(data);
+
+        // Auto-start the session after persona generation
+        setGeneratingPersona(false);
+        await handleStartSession(data);
+      } else {
+        // Log the error details for debugging
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        console.error("Persona generation failed:", {
+          status: res.status,
+          statusText: res.statusText,
+          error: errorData,
+          leadId: selectedLead.id,
+        });
+        setGeneratingPersona(false);
       }
-    } finally {
+    } catch (error) {
+      console.error("Persona generation exception:", error);
       setGeneratingPersona(false);
     }
   }
 
-  async function handleStartSession() {
-    if (!selectedLead || !selectedScenario || !persona) return;
+  async function handleStartSession(personaData?: PersonaResult) {
+    const personaToUse = personaData || persona;
+    if (!selectedLead || !selectedScenario || !personaToUse) return;
     setStartingSession(true);
 
     // Get user and org_id for session insert (required by RLS + NOT NULL)
@@ -204,7 +220,7 @@ export default function SimulationLaunchPage() {
       .insert({
         user_id: user.id,
         org_id: profile.org_id,
-        persona_id: persona.id,
+        persona_id: personaToUse.id,
         scenario_type: selectedScenario,
         status: "active",
       })
@@ -237,13 +253,12 @@ export default function SimulationLaunchPage() {
         {[1, 2, 3].map((s) => (
           <div key={s} className="flex items-center gap-2">
             <div
-              className={`flex size-8 items-center justify-center rounded-full text-sm font-medium ${
-                s < step
+              className={`flex size-8 items-center justify-center rounded-full text-sm font-medium ${s < step
+                ? "bg-primary text-primary-foreground"
+                : s === step
                   ? "bg-primary text-primary-foreground"
-                  : s === step
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-              }`}
+                  : "bg-muted text-muted-foreground"
+                }`}
             >
               {s < step ? <Check className="size-4" /> : s}
             </div>
@@ -278,11 +293,10 @@ export default function SimulationLaunchPage() {
               {filteredLeads.map((lead) => (
                 <div
                   key={lead.id}
-                  className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent ${
-                    selectedLead?.id === lead.id
-                      ? "border-primary bg-primary/5"
-                      : ""
-                  }`}
+                  className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent ${selectedLead?.id === lead.id
+                    ? "border-primary bg-primary/5"
+                    : ""
+                    }`}
                   onClick={() => setSelectedLead(lead)}
                 >
                   <div>
@@ -334,9 +348,8 @@ export default function SimulationLaunchPage() {
                 return (
                   <div
                     key={scenario.type}
-                    className={`cursor-pointer rounded-lg border p-4 transition-colors hover:bg-accent ${
-                      isSelected ? "border-primary bg-primary/5" : ""
-                    }`}
+                    className={`cursor-pointer rounded-lg border p-4 transition-colors hover:bg-accent ${isSelected ? "border-primary bg-primary/5" : ""
+                      }`}
                     onClick={() => setSelectedScenario(scenario.type)}
                   >
                     <div className="flex items-center gap-2">
@@ -427,15 +440,23 @@ export default function SimulationLaunchPage() {
               <Button
                 className="w-full"
                 onClick={handleGeneratePersona}
-                disabled={generatingPersona}
+                disabled={generatingPersona || startingSession}
               >
                 {generatingPersona ? (
                   <>
                     <Loader2 className="mr-2 size-4 animate-spin" />
                     Generating AI buyer persona...
                   </>
+                ) : startingSession ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Starting call...
+                  </>
                 ) : (
-                  "Generate Persona"
+                  <>
+                    <Mic className="mr-2 size-4" />
+                    Generate Persona & Start Call
+                  </>
                 )}
               </Button>
             )}
@@ -451,28 +472,14 @@ export default function SimulationLaunchPage() {
               </div>
             )}
 
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(2)}>
-                <ArrowLeft className="mr-1 size-4" />
-                Back
-              </Button>
-              <Button
-                onClick={handleStartSession}
-                disabled={!persona || startingSession}
-              >
-                {startingSession ? (
-                  <>
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <Mic className="mr-1 size-4" />
-                    Start Session
-                  </>
-                )}
-              </Button>
-            </div>
+            {persona && (
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setStep(2)}>
+                  <ArrowLeft className="mr-1 size-4" />
+                  Back
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

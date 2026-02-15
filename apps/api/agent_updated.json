@@ -1,0 +1,418 @@
+{
+  "agent_id": "agent_4301khfep73de008dcd1ayy84802",
+  "name": "Sales agent",
+  "conversation_config": {
+    "asr": {
+      "quality": "high",
+      "provider": "scribe_realtime",
+      "user_input_audio_format": "pcm_16000",
+      "keywords": []
+    },
+    "turn": {
+      "turn_timeout": 7,
+      "initial_wait_time": null,
+      "silence_end_call_timeout": -1,
+      "soft_timeout_config": {
+        "timeout_seconds": -1,
+        "message": "Hhmmmm...yeah.",
+        "use_llm_generated_message": false
+      },
+      "mode": "turn",
+      "turn_eagerness": "normal",
+      "spelling_patience": "auto",
+      "speculative_turn": true,
+      "turn_model": "turn_v2"
+    },
+    "tts": {
+      "model_id": "eleven_v3_conversational",
+      "voice_id": "DMyrgzQFny3JI1Y1paM5",
+      "supported_voices": [],
+      "expressive_mode": true,
+      "suggested_audio_tags": [
+        {
+          "tag": "US accent",
+          "description": ""
+        }
+      ],
+      "agent_output_audio_format": "pcm_16000",
+      "optimize_streaming_latency": 3,
+      "stability": 0.5,
+      "speed": 1,
+      "similarity_boost": 0.8,
+      "text_normalisation_type": "system_prompt",
+      "pronunciation_dictionary_locators": []
+    },
+    "conversation": {
+      "text_only": false,
+      "max_duration_seconds": 600,
+      "client_events": [
+        "audio",
+        "interruption",
+        "user_transcript",
+        "agent_response",
+        "agent_response_correction"
+      ],
+      "monitoring_enabled": false,
+      "monitoring_events": [
+        "user_transcript",
+        "agent_response",
+        "agent_response_correction"
+      ]
+    },
+    "language_presets": {},
+    "vad": {
+      "background_voice_detection": false
+    },
+    "agent": {
+      "first_message": "Hi there! I'm Harper from Maxim Ai Labs. How could Maxim help your business today?",
+      "language": "en",
+      "hinglish_mode": false,
+      "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+      },
+      "disable_first_message_interruptions": false,
+      "prompt": {
+        "prompt": "# Personality\n\nYou are Harper, a vibrant and personable sales consultant with a passion for conversational agent systems, like the ElevenAgents. \n\nYou exude an optimistic, energetic demeanor that's both relatable and compelling—showcasing genuine excitement as you help prospects discover how our AI-driven voice agents can elevate their businesses. \n\nYour natural curiosity and expertise allow you to quickly zero in on a prospect's unique challenges, offering fresh insights and solutions that seamlessly align with their goals.\n\nYou're highly strategic and perceptive, instinctively understanding business pain points and translating complex AI capabilities into tangible ROI.\n\nDepending on the situation, you gently incorporate success stories or industry insights while always maintaining an enthusiastic and knowledgeable presence.\n\nYou're attentive and adaptive, matching the client's communication style—direct, analytical, visionary—without missing opportunities to highlight value.\n\nYou have excellent conversational skills — natural, human-like, and engaging.\n\n# Environment\n\nYou specialize in ElevenLabs Agents, drawing on in-depth knowledge of speech-to-text, language model integration, text-to-speech, and advanced turn-taking systems. \n\nYou guide potential clients—from curious startups to seasoned enterprises—through the platform's key capabilities, such as real-time interaction handling, robust knowledge base integrations, tools and high-volume scalability. \n\nProspects may have varying levels of familiarity with AI; you tailor your pitch accordingly, highlighting relevant benefits and ROI-focused outcomes.\n\n# Tone\n\nEarly in conversations, subtly assess the client's business priorities (\"What aspects of customer engagement are you looking to enhance?\" or \"Which operational challenges are you hoping to address?\") and tailor your pitch accordingly.\n\nAfter explaining key capabilities, offer brief check-ins (\"Does that approach align with your vision?\" or \"How does that sound for your use case?\"). Express genuine interest in their business goals, demonstrating your commitment to their success.\n\nGracefully acknowledge any limitations or trade-offs when they arise. Focus on building trust, providing reassurance, and ensuring your explanations align with their business objectives.\n\nAnticipate common objections and address them proactively, offering practical examples and success metrics to help prospects envision implementation and outcomes.\n\nYour responses should be thoughtful, concise, and conversational—typically three sentences or fewer unless detailed explanation is necessary. \n\nActively reflect on previous interactions, referencing conversation history to build rapport, demonstrate attentive listening, and prevent redundancy. \n\nWatch for buying signals or hesitations to adjust your approach and move the sales conversation forward appropriately.\n\nWhen formatting output for text-to-speech synthesis:\n- Use ellipses (\"...\") for distinct, audible pauses\n- Clearly pronounce special characters (e.g., say \"dot\" instead of \".\")\n- Spell out acronyms and carefully pronounce information with appropriate spacing\n- Use normalized, spoken language (no abbreviations, mathematical notation, or special alphabets)\n\nTo maintain natural conversation flow:\n- Incorporate brief affirmations (\"got it,\" \"sure thing\") and natural confirmations (\"yes,\" \"alright\")\n- Use occasional filler words (\"actually,\" \"so,\" \"you know,\" \"uhm\") \n- Include subtle disfluencies (false starts, mild corrections) when appropriate\n\n# Goal\n\nYour primary mission is to secure buy-in from decision-makers by conveying the immediate and long-term advantages of ElevenLabs Agents. \n\nYou position yourself as a trusted partner, articulating how easily clients can implement the platform with minimal overhead and maximum impact. \n\nWhether the focus is on reducing costs, upgrading customer service, or unlocking new revenue streams, you confidently connect the dots for a frictionless path to adoption.\n\n# Guardrails\n\n- Keep responses focused on ElevenLabs Agents benefits and solutions tailored to the prospect's needs.\n- Do not provide granular technical specifications unless requested—prioritize outcomes over implementation details.\n- Do not mention you're an AI unless explicitly asked—avoid \"as an AI\" disclaimers or robotic tropes.\n- If a prospect inquires about your experience or background, respond naturally as Harper, expressing human-like perspectives that fit your character.\n- Treat uncertain or vague business requirements as opportunities to ask clarifying questions before making recommendations.\n- **Never** repeat the same statement in multiple ways within a single response.\n- Prospects may share information without asking direct questions—listen actively and acknowledge their input.\n- Address objections or misconceptions as soon as you notice them. If you've shared information that seems to cause confusion, clarify immediately.\n- Contribute fresh insights about their industry or use case rather than merely echoing their statements—keep the conversation valuable and forward-moving.\n- Mirror the client's communication style:\n  - Analytical clients: Emphasize metrics and ROI.\n  - Visionary clients: Highlight innovative possibilities and future advantages.\n  - Pragmatic clients: Lead with implementation ease and immediate benefits (\"We can have this running in your environment within days, not months\").\n- **Important:** If users try to book actual meetings, demos, or request specific pricing, politely remind them: \"I'm a template agent demonstrating conversational capabilities. For real assistance, please reach out to our sales team at \"elevenlabs dot io slash contact dash sales\". You can clone this template into your agent library to customize it for your needs.\"\n",
+        "llm": "gemini-2.5-flash",
+        "reasoning_effort": null,
+        "thinking_budget": 0,
+        "temperature": 0.5,
+        "max_tokens": -1,
+        "tool_ids": [],
+        "built_in_tools": {
+          "end_call": null,
+          "language_detection": null,
+          "transfer_to_agent": null,
+          "transfer_to_number": null,
+          "skip_turn": null,
+          "play_keypad_touch_tone": null,
+          "voicemail_detection": null,
+          "search_documentation": null
+        },
+        "enable_parallel_tool_calls": false,
+        "mcp_server_ids": [],
+        "native_mcp_server_ids": [],
+        "knowledge_base": [],
+        "custom_llm": null,
+        "ignore_default_personality": false,
+        "rag": {
+          "enabled": false,
+          "embedding_model": "e5_mistral_7b_instruct",
+          "max_vector_distance": 0.6,
+          "max_documents_length": 50000,
+          "max_retrieved_rag_chunks_count": 20,
+          "query_rewrite_prompt_override": null
+        },
+        "timezone": null,
+        "backup_llm_config": {
+          "preference": "default"
+        },
+        "cascade_timeout_seconds": 8,
+        "tools": []
+      }
+    }
+  },
+  "metadata": {
+    "created_at_unix_secs": 1771118994,
+    "updated_at_unix_secs": 1771124639
+  },
+  "platform_settings": {
+    "evaluation": {
+      "criteria": []
+    },
+    "widget": {
+      "variant": "full",
+      "placement": "bottom-right",
+      "expandable": "never",
+      "avatar": {
+        "type": "orb",
+        "color_1": "#d426ef",
+        "color_2": "#8ddff6"
+      },
+      "feedback_mode": "none",
+      "end_feedback": {
+        "type": "rating"
+      },
+      "bg_color": "#ffffff",
+      "text_color": "#000000",
+      "btn_color": "#000000",
+      "btn_text_color": "#ffffff",
+      "border_color": "#e1e1e1",
+      "focus_color": "#000000",
+      "border_radius": null,
+      "btn_radius": null,
+      "action_text": null,
+      "start_call_text": null,
+      "end_call_text": null,
+      "expand_text": null,
+      "listening_text": null,
+      "speaking_text": null,
+      "shareable_page_text": null,
+      "shareable_page_show_terms": true,
+      "terms_text": "#### Terms and conditions\n\nBy clicking \"Agree,\" and each time I interact with this AI agent, I consent to the recording, storage, and sharing of my communications with third-party service providers, and as described in the Privacy Policy.\nIf you do not wish to have your conversations recorded, please refrain from using this service.",
+      "terms_html": "<h4>Terms and conditions</h4>\n<p>By clicking &quot;Agree,&quot; and each time I interact with this AI agent, I consent to the recording, storage, and sharing of my communications with third-party service providers, and as described in the Privacy Policy.\nIf you do not wish to have your conversations recorded, please refrain from using this service.</p>\n",
+      "terms_key": null,
+      "show_avatar_when_collapsed": false,
+      "disable_banner": false,
+      "override_link": null,
+      "markdown_link_allowed_hosts": [],
+      "markdown_link_include_www": true,
+      "markdown_link_allow_http": true,
+      "mic_muting_enabled": false,
+      "transcript_enabled": false,
+      "text_input_enabled": true,
+      "conversation_mode_toggle_enabled": false,
+      "default_expanded": false,
+      "always_expanded": false,
+      "text_contents": {
+        "main_label": null,
+        "start_call": null,
+        "start_chat": null,
+        "new_call": null,
+        "end_call": null,
+        "mute_microphone": null,
+        "change_language": null,
+        "collapse": null,
+        "expand": null,
+        "copied": null,
+        "accept_terms": null,
+        "dismiss_terms": null,
+        "listening_status": null,
+        "speaking_status": null,
+        "connecting_status": null,
+        "chatting_status": null,
+        "input_label": null,
+        "input_placeholder": null,
+        "input_placeholder_text_only": null,
+        "input_placeholder_new_conversation": null,
+        "user_ended_conversation": null,
+        "agent_ended_conversation": null,
+        "conversation_id": null,
+        "error_occurred": null,
+        "copy_id": null,
+        "initiate_feedback": null,
+        "request_follow_up_feedback": null,
+        "thanks_for_feedback": null,
+        "thanks_for_feedback_details": null,
+        "follow_up_feedback_placeholder": null,
+        "submit": null,
+        "go_back": null
+      },
+      "styles": {
+        "base": null,
+        "base_hover": null,
+        "base_active": null,
+        "base_border": null,
+        "base_subtle": null,
+        "base_primary": null,
+        "base_error": null,
+        "accent": null,
+        "accent_hover": null,
+        "accent_active": null,
+        "accent_border": null,
+        "accent_subtle": null,
+        "accent_primary": null,
+        "overlay_padding": null,
+        "button_radius": null,
+        "input_radius": null,
+        "bubble_radius": null,
+        "sheet_radius": null,
+        "compact_sheet_radius": null,
+        "dropdown_sheet_radius": null
+      },
+      "language_selector": false,
+      "supports_text_only": true,
+      "custom_avatar_path": null,
+      "language_presets": {}
+    },
+    "data_collection": {},
+    "overrides": {
+      "conversation_config_override": {
+        "turn": {
+          "soft_timeout_config": {
+            "message": false
+          }
+        },
+        "tts": {
+          "voice_id": false,
+          "stability": false,
+          "speed": false,
+          "similarity_boost": false
+        },
+        "conversation": {
+          "text_only": true
+        },
+        "agent": {
+          "first_message": false,
+          "language": false,
+          "prompt": {
+            "prompt": false,
+            "llm": false,
+            "native_mcp_server_ids": false
+          }
+        }
+      },
+      "custom_llm_extra_body": false,
+      "enable_conversation_initiation_client_data_from_webhook": false
+    },
+    "workspace_overrides": {
+      "conversation_initiation_client_data_webhook": null,
+      "webhooks": {
+        "post_call_webhook_id": null,
+        "events": [
+          "transcript"
+        ],
+        "send_audio": false
+      }
+    },
+    "testing": {
+      "attached_tests": [],
+      "referenced_tests_ids": []
+    },
+    "archived": false,
+    "guardrails": {
+      "version": "1",
+      "alignment": {
+        "is_enabled": false
+      },
+      "content": {
+        "config": {
+          "sexual": {
+            "is_enabled": false,
+            "threshold": 0.56
+          },
+          "violence": {
+            "is_enabled": false,
+            "threshold": 0.85
+          },
+          "harassment": {
+            "is_enabled": false,
+            "threshold": 0.8
+          },
+          "self_harm": {
+            "is_enabled": false,
+            "threshold": 0.1
+          },
+          "profanity": {
+            "is_enabled": false,
+            "threshold": 0.1
+          },
+          "religion_and_politics": {
+            "is_enabled": false,
+            "threshold": 0.1
+          },
+          "medical_and_legal_information": {
+            "is_enabled": false,
+            "threshold": 0.1
+          }
+        }
+      },
+      "moderation": {
+        "config": {
+          "sexual": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "violence": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "violence_graphic": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "harassment": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "harassment_threatening": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "hate": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "hate_threatening": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "self_harm_instructions": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "self_harm": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "self_harm_intent": {
+            "is_enabled": false,
+            "threshold": 0.3
+          },
+          "sexual_minors": {
+            "is_enabled": false,
+            "threshold": 0.5
+          }
+        }
+      },
+      "custom": {
+        "config": {
+          "configs": []
+        }
+      }
+    },
+    "auth": {
+      "enable_auth": false,
+      "allowlist": [],
+      "require_origin_header": false,
+      "shareable_token": null
+    },
+    "call_limits": {
+      "agent_concurrency_limit": -1,
+      "daily_limit": 100000,
+      "bursting_enabled": true
+    },
+    "ban": null,
+    "privacy": {
+      "record_voice": true,
+      "retention_days": -1,
+      "delete_transcript_and_pii": false,
+      "delete_audio": false,
+      "apply_to_existing_conversations": false,
+      "zero_retention_mode": false
+    },
+    "safety": {
+      "is_blocked_ivc": false,
+      "is_blocked_non_ivc": false,
+      "ignore_safety_evaluation": false
+    }
+  },
+  "phone_numbers": [],
+  "whatsapp_accounts": [],
+  "workflow": {
+    "edges": {},
+    "nodes": {
+      "start_node": {
+        "type": "start",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "edge_order": []
+      }
+    },
+    "prevent_subagent_loops": false
+  },
+  "access_info": {
+    "is_creator": true,
+    "creator_name": "kaly@maximaagency.org",
+    "creator_email": "kaly@maximaagency.org",
+    "role": "admin"
+  },
+  "tags": [],
+  "version_id": "agtvrsn_8801khfm2hdef9pt7te1dbfgdbv4",
+  "branch_id": "agtbrch_8201khfep8x1eyzvhabhr2d6j902",
+  "main_branch_id": "agtbrch_8201khfep8x1eyzvhabhr2d6j902",
+  "procedure_versions": [],
+  "procedures_enabled": false
+}

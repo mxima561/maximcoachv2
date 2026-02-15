@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { generateText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { createServiceClient } from "../lib/supabase.js";
 import { getValkey } from "../lib/valkey.js";
 import {
@@ -115,7 +115,7 @@ export async function personaRoutes(app: FastifyInstance) {
       const prompt = buildPrompt(lead, effectiveDifficulty, difficultySection);
 
       const { text } = await generateText({
-        model: anthropic("claude-sonnet-4-5-20250929"),
+        model: openai("gpt-4-turbo"),
         system:
           "You are an expert sales training persona generator. Generate realistic buyer personas based on lead data. Always respond with valid JSON matching the requested schema.",
         prompt,
@@ -155,7 +155,7 @@ export async function personaRoutes(app: FastifyInstance) {
       if (valkey) {
         await valkey
           .set(cacheKey(lead_id), JSON.stringify(persona), "EX", CACHE_TTL)
-          .catch(() => {});
+          .catch(() => { });
       }
 
       return reply.send(persona);

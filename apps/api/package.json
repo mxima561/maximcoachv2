@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.44",
+    "@ai-sdk/openai": "^3.0.29",
     "@fastify/cors": "^11.2.0",
     "@maxima/shared": "workspace:*",
     "@supabase/supabase-js": "^2.95.3",
