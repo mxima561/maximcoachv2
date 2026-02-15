@@ -7,5 +7,7 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #1651 | 12:16 PM | 🟣 | Voice service package configured with ESM and tsx watch mode | ~268 |
+| #2007 | 6:54 PM | 🔵 | Voice Service TypeScript Configuration | ~560 |
+| #1652 | 12:16 PM | 🟣 | TypeScript configuration for voice service with output directory | ~224 |
+| #1651 | " | 🟣 | Voice service package configured with ESM and tsx watch mode | ~268 |
 </claude-mem-context>

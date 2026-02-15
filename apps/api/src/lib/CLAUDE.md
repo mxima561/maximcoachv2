@@ -8,6 +8,4 @@
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
 | #2047 | 6:58 PM | ✅ | API Agent Completed Task #2 - Fixed Valkey Guard and CORS Configuration | ~838 |
-| #1686 | 12:24 PM | 🟣 | Fastify 5 server implemented with health check and CORS | ~468 |
-| #1650 | 12:16 PM | 🟣 | API service placeholder entry point created | ~167 |
 </claude-mem-context>

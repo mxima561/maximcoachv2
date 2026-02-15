@@ -7,5 +7,7 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #1653 | 12:17 PM | 🟣 | Voice service placeholder entry point created | ~183 |
+| #2026 | 6:55 PM | ✅ | LLM Sentence Extraction Improved to Handle Multiple Sentences | ~751 |
+| #2016 | 6:54 PM | ✅ | Voice Service JWT Secret Fallback Added | ~664 |
+| #2003 | 6:53 PM | 🔵 | Deepgram STT Implementation with Live Transcription | ~830 |
 </claude-mem-context>
