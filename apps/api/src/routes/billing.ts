@@ -227,12 +227,52 @@ export async function billingRoutes(app: FastifyInstance) {
           const orgId = session.metadata?.org_id;
           const plan = session.metadata?.plan;
 
-          if (orgId && plan) {
+          if (orgId && plan && session.mode === "subscription") {
+            // Get trial stats before cleanup
+            const { count: sessionsUsed } = await supabase
+              .from("trial_sessions")
+              .select("*", { count: "exact", head: true })
+              .eq("organization_id", orgId);
+
+            const { data: org } = await supabase
+              .from("organizations")
+              .select("trial_starts_at")
+              .eq("id", orgId)
+              .single();
+
+            const daysIntoTrial = org?.trial_starts_at
+              ? Math.floor(
+                  (Date.now() - new Date(org.trial_starts_at).getTime()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              : 0;
+
+            // Delete all trial sessions (cleanup)
+            await supabase
+              .from("trial_sessions")
+              .delete()
+              .eq("organization_id", orgId);
+
+            // Log upgrade event with conversion metrics
+            await supabase.from("trial_events").insert({
+              organization_id: orgId,
+              event_type: "upgraded",
+              metadata: {
+                sessions_used: sessionsUsed || 0,
+                days_into_trial: daysIntoTrial,
+                trigger: "checkout_completed",
+                plan: plan,
+                stripe_session_id: session.id,
+              },
+            });
+
+            // Update organization with new plan
             await supabase
               .from("organizations")
               .update({
                 plan,
                 stripe_customer_id: session.customer as string,
+                plan_updated_at: new Date().toISOString(),
               })
               .eq("id", orgId);
           }

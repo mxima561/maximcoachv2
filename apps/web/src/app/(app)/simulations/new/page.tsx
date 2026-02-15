@@ -195,41 +195,101 @@ export default function SimulationLaunchPage() {
     if (!selectedLead || !selectedScenario || !personaToUse) return;
     setStartingSession(true);
 
-    // Get user and org_id for session insert (required by RLS + NOT NULL)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setStartingSession(false);
-      return;
-    }
+    try {
+      // Get user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        alert("You must be logged in to start a session");
+        setStartingSession(false);
+        return;
+      }
 
-    const { data: profile } = await supabase
-      .from("users")
-      .select("org_id")
-      .eq("id", user.id)
-      .single();
+      // Get organization_id from organization_users
+      const { data: orgUsers } = await supabase
+        .from("organization_users")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .limit(1);
 
-    if (!profile?.org_id) {
-      setStartingSession(false);
-      return;
-    }
+      if (!orgUsers || orgUsers.length === 0) {
+        alert("You must belong to an organization to start a session");
+        setStartingSession(false);
+        return;
+      }
 
-    const { data: session } = await supabase
-      .from("sessions")
-      .insert({
-        user_id: user.id,
-        org_id: profile.org_id,
-        persona_id: personaToUse.id,
-        scenario_type: selectedScenario,
-        status: "active",
-      })
-      .select("id")
-      .single();
+      const org_id = orgUsers[0].organization_id;
 
-    if (session) {
-      router.push(`/simulate/${session.id}`);
-    } else {
+      // Check trial status before creating session
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+      // Get user's IP address for trial tracking
+      let ipAddress = "";
+      try {
+        const ipRes = await fetch("https://api.ipify.org?format=json");
+        const ipData = await ipRes.json();
+        ipAddress = ipData.ip;
+      } catch {
+        // Fallback if IP service fails
+        ipAddress = "unknown";
+      }
+
+      const trialCheckRes = await fetch(`${apiUrl}/check-trial`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          ip_address: ipAddress,
+        }),
+      });
+
+      const trialCheck = await trialCheckRes.json();
+
+      if (!trialCheck.allowed) {
+        const messages: Record<string, string> = {
+          trial_expired: "Your trial has expired. Please upgrade to continue creating sessions.",
+          trial_admin_only: "Only admins can create sessions during the trial period. Please contact your organization admin.",
+          ip_limit_reached: "Trial session limit reached (5 sessions per IP). Please upgrade to continue.",
+          upgrade_required: "Please upgrade your plan to create sessions.",
+          no_organization: "You must belong to an organization to create sessions.",
+        };
+
+        const message = messages[trialCheck.reason as string] || "Cannot create session at this time.";
+        alert(message);
+        setStartingSession(false);
+        return;
+      }
+
+      // Create session via API to ensure trial tracking
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const sessionRes = await fetch(`${apiUrl}/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authSession?.access_token
+            ? { Authorization: `Bearer ${authSession.access_token}` }
+            : {}),
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          org_id,
+          persona_id: personaToUse.id,
+          scenario_type: selectedScenario,
+          ip_address: ipAddress,
+        }),
+      });
+
+      if (sessionRes.ok) {
+        const session = await sessionRes.json();
+        router.push(`/simulate/${session.id}`);
+      } else {
+        alert("Failed to create session. Please try again.");
+        setStartingSession(false);
+      }
+    } catch (error) {
+      console.error("Session creation error:", error);
+      alert("An error occurred while creating the session. Please try again.");
       setStartingSession(false);
     }
   }

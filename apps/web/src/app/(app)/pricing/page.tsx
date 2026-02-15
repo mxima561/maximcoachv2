@@ -1,4 +1,4 @@
-import { PLAN_DETAILS } from "@maxima/shared/constants";
+import { PLAN_DETAILS } from "@maxima/shared";
 import Link from "next/link";
 
 export default function PricingPage() {
@@ -52,7 +52,7 @@ export default function PricingPage() {
               </div>
 
               <ul className="mb-6 space-y-3">
-                {plan.features.map((feature, i) => (
+                {plan.features.map((feature: string, i: number) => (
                   <li key={i} className="flex items-start text-sm">
                     <svg
                       className="mr-2 mt-0.5 h-4 w-4 flex-shrink-0 text-primary"
