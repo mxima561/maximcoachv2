@@ -38,24 +38,47 @@ const FEATURES = [
   },
 ] as const;
 
-const GROWTH_FEATURES = [
-  "Up to 50 sessions/month per rep",
-  "5 scoring categories with coaching tips",
-  "Team leaderboards",
-  "Google Sheets lead import",
-  "Clip sharing & team feed",
+const STARTER_FEATURES = [
+  "Up to 5 reps",
+  "15 sessions/rep/month (75 pool)",
+  "Core scenarios (cold call, objection handling, discovery, closing)",
+  "Basic rep dashboard with scoring",
+  "Animated orb visualization",
   "Email support",
 ];
 
-const PRO_FEATURES = [
-  "Unlimited sessions per rep",
-  "Everything in Growth",
-  "Salesforce & HubSpot integration",
-  "Head-to-head challenges",
-  "Custom scenarios",
-  "Adaptive difficulty (ELO-based)",
-  "Manager dashboard & analytics",
+const GROWTH_FEATURES = [
+  "Up to 15 reps",
+  "15 sessions/rep/month (225 pool)",
+  "Everything in Starter",
+  "Weekly leaderboards",
+  "Team challenges",
+  "Manager dashboard with team analytics",
+  "Clip sharing & team feed",
+  "Slack notifications",
   "Priority support",
+];
+
+const SCALE_FEATURES = [
+  "Up to 30 reps",
+  "20 sessions/rep/month (600 pool)",
+  "Everything in Growth",
+  "Head-to-head mode",
+  "Custom scenario builder",
+  "CRM integration (HubSpot, Salesforce)",
+  "Advanced analytics & reporting",
+  "Dedicated success manager",
+];
+
+const ENTERPRISE_FEATURES = [
+  "30+ reps (negotiated)",
+  "Unlimited sessions",
+  "Everything in Scale",
+  "Company-wide tournaments",
+  "SSO/SAML",
+  "Custom persona library",
+  "API access",
+  "Quarterly business reviews",
 ];
 
 export default function LandingPage() {
@@ -204,20 +227,49 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-16 grid gap-8 md:grid-cols-2">
-            {/* Growth Plan */}
-            <div className="rounded-2xl border p-8">
-              <h3 className="text-lg font-semibold">Growth</h3>
+          <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+            {/* Starter Plan */}
+            <div className="rounded-2xl border p-6">
+              <h3 className="text-lg font-semibold">Starter</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                For small teams getting started with AI coaching.
+                Small sales teams testing AI training.
               </p>
               <div className="mt-6">
-                <span className="text-4xl font-bold">$69</span>
-                <span className="text-muted-foreground">/rep/month</span>
+                <span className="text-4xl font-bold">$299</span>
+                <span className="text-muted-foreground">/month</span>
+              </div>
+              <Link
+                href="/signup?plan=starter"
+                className="mt-6 flex h-10 w-full items-center justify-center rounded-md border text-sm font-medium transition-colors hover:bg-accent"
+              >
+                Start Free Trial
+              </Link>
+              <ul className="mt-8 space-y-3">
+                {STARTER_FEATURES.map((feature) => (
+                  <li key={feature} className="flex items-start gap-3 text-sm">
+                    <Check className="mt-0.5 size-4 shrink-0 text-green-500" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Growth Plan */}
+            <div className="relative rounded-2xl border-2 border-primary p-6">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-medium text-primary-foreground">
+                Most Popular
+              </div>
+              <h3 className="text-lg font-semibold">Growth</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Growing teams that saw results on Starter.
+              </p>
+              <div className="mt-6">
+                <span className="text-4xl font-bold">$599</span>
+                <span className="text-muted-foreground">/month</span>
               </div>
               <Link
                 href="/signup?plan=growth"
-                className="mt-6 flex h-10 w-full items-center justify-center rounded-md border text-sm font-medium transition-colors hover:bg-accent"
+                className="mt-6 flex h-10 w-full items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Start Free Trial
               </Link>
@@ -231,28 +283,50 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            {/* Pro Plan */}
-            <div className="relative rounded-2xl border-2 border-primary p-8">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-medium text-primary-foreground">
-                Most Popular
-              </div>
-              <h3 className="text-lg font-semibold">Pro</h3>
+            {/* Scale Plan */}
+            <div className="rounded-2xl border p-6">
+              <h3 className="text-lg font-semibold">Scale</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                For growing teams that need advanced features and unlimited
-                practice.
+                Full sales floors with advanced needs.
               </p>
               <div className="mt-6">
-                <span className="text-4xl font-bold">$99</span>
-                <span className="text-muted-foreground">/rep/month</span>
+                <span className="text-4xl font-bold">$999</span>
+                <span className="text-muted-foreground">/month</span>
               </div>
               <Link
-                href="/signup?plan=pro"
-                className="mt-6 flex h-10 w-full items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                href="/signup?plan=scale"
+                className="mt-6 flex h-10 w-full items-center justify-center rounded-md border text-sm font-medium transition-colors hover:bg-accent"
               >
                 Start Free Trial
               </Link>
               <ul className="mt-8 space-y-3">
-                {PRO_FEATURES.map((feature) => (
+                {SCALE_FEATURES.map((feature) => (
+                  <li key={feature} className="flex items-start gap-3 text-sm">
+                    <Check className="mt-0.5 size-4 shrink-0 text-green-500" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Enterprise Plan */}
+            <div className="rounded-2xl border p-6">
+              <h3 className="text-lg font-semibold">Enterprise</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Multi-location orgs, franchise teams.
+              </p>
+              <div className="mt-6">
+                <span className="text-4xl font-bold">Custom</span>
+                <span className="text-muted-foreground">/month</span>
+              </div>
+              <a
+                href="mailto:sales@maximacoach.com"
+                className="mt-6 flex h-10 w-full items-center justify-center rounded-md border text-sm font-medium transition-colors hover:bg-accent"
+              >
+                Contact Sales
+              </a>
+              <ul className="mt-8 space-y-3">
+                {ENTERPRISE_FEATURES.map((feature) => (
                   <li key={feature} className="flex items-start gap-3 text-sm">
                     <Check className="mt-0.5 size-4 shrink-0 text-green-500" />
                     {feature}
