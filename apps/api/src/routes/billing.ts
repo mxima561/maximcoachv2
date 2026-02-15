@@ -14,24 +14,43 @@ function getStripe(): Stripe {
 }
 
 const PLANS = {
+  starter: {
+    name: "Starter",
+    price: 29900, // $299.00 in cents
+    priceId: process.env.STRIPE_STARTER_PRICE_ID!,
+    maxReps: 5,
+    sessionsPerRep: 15,
+    totalSessions: 75,
+  },
   growth: {
     name: "Growth",
-    pricePerRep: 6900, // $69.00 in cents
+    price: 59900, // $599.00 in cents
     priceId: process.env.STRIPE_GROWTH_PRICE_ID!,
-    sessionLimit: 50,
+    maxReps: 15,
+    sessionsPerRep: 15,
+    totalSessions: 225,
   },
-  pro: {
-    name: "Pro",
-    pricePerRep: 9900, // $99.00 in cents
-    priceId: process.env.STRIPE_PRO_PRICE_ID!,
-    sessionLimit: -1, // unlimited
+  scale: {
+    name: "Scale",
+    price: 99900, // $999.00 in cents
+    priceId: process.env.STRIPE_SCALE_PRICE_ID!,
+    maxReps: 30,
+    sessionsPerRep: 20,
+    totalSessions: 600,
+  },
+  enterprise: {
+    name: "Enterprise",
+    price: 150000, // $1,500.00+ in cents (starting price)
+    priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID!,
+    maxReps: -1, // unlimited
+    sessionsPerRep: -1, // unlimited
+    totalSessions: -1, // unlimited
   },
 } as const;
 
 const CheckoutSchema = z.object({
   org_id: z.string().uuid(),
-  plan: z.enum(["growth", "pro"]),
-  quantity: z.number().int().min(1),
+  plan: z.enum(["starter", "growth", "scale", "enterprise"]),
   success_url: z.string().url(),
   cancel_url: z.string().url(),
 });
@@ -90,7 +109,7 @@ export async function billingRoutes(app: FastifyInstance) {
       line_items: [
         {
           price: plan.priceId,
-          quantity: body.quantity,
+          quantity: 1, // Fixed quantity per plan tier
         },
       ],
       success_url: body.success_url,
@@ -167,12 +186,14 @@ export async function billingRoutes(app: FastifyInstance) {
 
     const planKey = org.plan as keyof typeof PLANS;
     const planConfig = PLANS[planKey] ?? null;
-    const limit = planConfig?.sessionLimit ?? 10; // free tier: 10 sessions
+    const limit = planConfig?.totalSessions ?? 10; // free tier: 10 sessions
 
     return {
       plan: org.plan,
       sessions_used: sessionCount,
       session_limit: limit === -1 ? null : limit,
+      max_reps: planConfig?.maxReps ?? 1,
+      sessions_per_rep: planConfig?.sessionsPerRep ?? 10,
       is_within_limit: limit === -1 || sessionCount < limit,
     };
   });
