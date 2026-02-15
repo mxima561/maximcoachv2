@@ -3,6 +3,9 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
+// All pages require auth / runtime env vars — skip static generation
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "MaximaCoach",
   description: "AI-Powered Sales Training & Coaching Platform",
