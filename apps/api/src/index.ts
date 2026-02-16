@@ -50,6 +50,32 @@ await app.register(cors, {
   methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   credentials: true,
 });
+
+// Sentry request context tracking
+app.addHook("onRequest", async (request, reply) => {
+  // Start a new span for performance tracking
+  const transaction = Sentry.startTransaction({
+    op: "http.server",
+    name: `${request.method} ${request.routeOptions.url || request.url}`,
+    data: {
+      method: request.method,
+      url: request.url,
+      headers: request.headers,
+    },
+  });
+
+  // Attach transaction to request for later use
+  (request as any).sentryTransaction = transaction;
+});
+
+app.addHook("onResponse", async (request, reply) => {
+  // Finish the transaction
+  const transaction = (request as any).sentryTransaction;
+  if (transaction) {
+    transaction.setHttpStatus(reply.statusCode);
+    transaction.finish();
+  }
+});
 await app.register(personaRoutes);
 await app.register(scorecardRoutes);
 await app.register(challengeRoutes);
@@ -62,19 +88,39 @@ await app.register(sessionRoutes);
 
 // Sentry error handler
 app.setErrorHandler((error, request, reply) => {
-  // Log to Sentry
+  // Extract user info from request if available
+  const userId = request.headers["x-user-id"] as string;
+  const authorization = request.headers.authorization;
+
+  // Capture exception with full context
   Sentry.captureException(error, {
     contexts: {
-      request: {
+      fastify: {
         method: request.method,
         url: request.url,
-        headers: request.headers,
+        route: request.routeOptions?.url,
+        params: request.params,
+        query: request.query,
+        ip: request.ip,
       },
     },
-    user: {
-      id: request.headers["x-user-id"] as string,
+    user: userId ? {
+      id: userId,
+    } : undefined,
+    tags: {
+      route: request.routeOptions?.url || request.url,
+      method: request.method,
+      status_code: error.statusCode || 500,
     },
+    level: error.statusCode && error.statusCode < 500 ? 'warning' : 'error',
   });
+
+  // Finish transaction if exists
+  const transaction = (request as any).sentryTransaction;
+  if (transaction) {
+    transaction.setHttpStatus(error.statusCode || 500);
+    transaction.finish();
+  }
 
   // Log locally
   request.log.error(error);
