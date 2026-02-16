@@ -9,6 +9,7 @@ export type TrialStatus = {
   sessionsRemaining: number;
   canCreateSessions: boolean;
   isLoading: boolean;
+  orgId: string | null;
 };
 
 export function useTrialStatus(): TrialStatus {
@@ -18,6 +19,7 @@ export function useTrialStatus(): TrialStatus {
     sessionsRemaining: 0,
     canCreateSessions: true,
     isLoading: true,
+    orgId: null,
   });
 
   const supabase = createClient();
@@ -35,6 +37,7 @@ export function useTrialStatus(): TrialStatus {
             sessionsRemaining: 0,
             canCreateSessions: false,
             isLoading: false,
+            orgId: null,
           });
           return;
         }
@@ -52,6 +55,7 @@ export function useTrialStatus(): TrialStatus {
             sessionsRemaining: 0,
             canCreateSessions: false,
             isLoading: false,
+            orgId: null,
           });
           return;
         }
@@ -71,6 +75,7 @@ export function useTrialStatus(): TrialStatus {
             sessionsRemaining: 0,
             canCreateSessions: true,
             isLoading: false,
+            orgId: null,
           });
           return;
         }
@@ -97,6 +102,7 @@ export function useTrialStatus(): TrialStatus {
           sessionsRemaining,
           canCreateSessions,
           isLoading: false,
+          orgId: orgUser.organization_id,
         });
       } catch (error) {
         console.error("Error fetching trial status:", error);

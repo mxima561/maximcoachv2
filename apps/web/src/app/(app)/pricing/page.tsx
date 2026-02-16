@@ -1,8 +1,50 @@
+"use client";
+
 import { PLAN_DETAILS } from "@maxima/shared";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function PricingPage() {
   const plans = ["starter", "growth", "scale", "enterprise"] as const;
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function getOrgId() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: orgUser } = await supabase
+        .from("organization_users")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (orgUser) {
+        setOrgId(orgUser.organization_id);
+      }
+    }
+    getOrgId();
+  }, [supabase]);
+
+  const trackUpgradeClick = async (plan: string) => {
+    if (!orgId) return;
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      await fetch(`${apiUrl}/track-upgrade-click`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          org_id: orgId,
+          source: "pricing_page",
+          plan,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to track upgrade click:", err);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -72,12 +114,13 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link
-                href={
-                  plan.price !== null
+              <button
+                onClick={async () => {
+                  await trackUpgradeClick(planKey);
+                  window.location.href = plan.price !== null
                     ? `/api/billing/checkout?plan=${planKey}`
-                    : "/contact"
-                }
+                    : "/contact";
+                }}
                 className={`block w-full rounded-md px-4 py-2 text-center text-sm font-medium transition-colors ${
                   isRecommended
                     ? "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -85,7 +128,7 @@ export default function PricingPage() {
                 }`}
               >
                 {plan.price !== null ? "Get Started" : "Contact Sales"}
-              </Link>
+              </button>
             </div>
           );
         })}

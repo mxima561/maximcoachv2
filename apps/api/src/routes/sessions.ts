@@ -39,7 +39,13 @@ export async function sessionRoutes(app: FastifyInstance) {
 
       // Track trial session if applicable
       if (ip_address) {
-        await trackTrialSession(org_id, ip_address);
+        await trackTrialSession(
+          org_id,
+          user_id,
+          session.id,
+          scenario_type,
+          ip_address
+        );
       }
 
       return reply.send(session);
@@ -52,6 +58,9 @@ export async function sessionRoutes(app: FastifyInstance) {
  */
 async function trackTrialSession(
   organizationId: string,
+  userId: string,
+  sessionId: string,
+  scenarioType: string,
   ipAddress: string,
 ): Promise<void> {
   const supabase = createServiceClient();
@@ -66,9 +75,12 @@ async function trackTrialSession(
   // Only track if on trial plan
   if (org?.plan !== "trial") return;
 
-  // Log trial session with IP address
+  // Log trial session with full details for analytics
   await supabase.from("trial_sessions").insert({
     organization_id: organizationId,
+    user_id: userId,
+    session_id: sessionId,
+    scenario_type: scenarioType,
     ip_address: ipAddress,
   });
 
