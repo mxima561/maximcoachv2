@@ -66,6 +66,7 @@ export default function OnboardingPage() {
         organization_id: org.id,
         event_type: "trial_started",
         metadata: {
+          source: "onboarding",
           user_email: user.email,
           org_name: orgName,
         },

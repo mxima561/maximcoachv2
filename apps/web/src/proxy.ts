@@ -53,13 +53,16 @@ export async function proxy(request: NextRequest) {
 
   // Role-based route protection
   if (user && (pathname.startsWith("/admin") || pathname.startsWith("/manager"))) {
-    const { data: profile } = await supabase
-      .from("users")
+    const { data: membership } = await supabase
+      .from("organization_users")
       .select("role")
-      .eq("id", user.id)
-      .single();
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
 
-    if (pathname.startsWith("/admin") && profile?.role !== "admin") {
+    const role = membership?.role;
+
+    if (pathname.startsWith("/admin") && role !== "admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);
@@ -67,8 +70,8 @@ export async function proxy(request: NextRequest) {
 
     if (
       pathname.startsWith("/manager") &&
-      profile?.role !== "manager" &&
-      profile?.role !== "admin"
+      role !== "manager" &&
+      role !== "admin"
     ) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";

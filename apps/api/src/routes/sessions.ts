@@ -12,7 +12,7 @@ const CreateSessionSchema = z.object({
 
 export async function sessionRoutes(app: FastifyInstance) {
   async function handleCreateSession(
-    request: { body: z.infer<typeof CreateSessionSchema> },
+    request: { body: z.infer<typeof CreateSessionSchema>; ip?: string },
     reply: { code: (statusCode: number) => { send: (body: unknown) => void }; send: (body: unknown) => void },
   ) {
     const { user_id, org_id, persona_id, scenario_type, ip_address } =
@@ -38,13 +38,14 @@ export async function sessionRoutes(app: FastifyInstance) {
     }
 
     // Track trial session if applicable
-    if (ip_address) {
+    const ipAddress = ip_address ?? request.ip;
+    if (ipAddress) {
       await trackTrialSession(
         org_id,
         user_id,
         session.id,
         scenario_type,
-        ip_address
+        ipAddress
       );
     }
 

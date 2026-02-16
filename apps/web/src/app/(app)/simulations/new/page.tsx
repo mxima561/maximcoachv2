@@ -224,15 +224,14 @@ export default function SimulationLaunchPage() {
       // Check trial status before creating session
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-      // Get user's IP address for trial tracking
-      let ipAddress = "";
+      // Get user's IP address for trial tracking (optional; API can fall back)
+      let ipAddress: string | undefined;
       try {
         const ipRes = await fetch("https://api.ipify.org?format=json");
         const ipData = await ipRes.json();
         ipAddress = ipData.ip;
       } catch {
-        // Fallback if IP service fails
-        ipAddress = "unknown";
+        ipAddress = undefined;
       }
 
       const trialCheckRes = await fetch(`${apiUrl}/api/sessions/check-trial`, {
@@ -240,7 +239,7 @@ export default function SimulationLaunchPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: user.id,
-          ip_address: ipAddress,
+          ...(ipAddress ? { ip_address: ipAddress } : {}),
         }),
       });
 
@@ -295,7 +294,7 @@ export default function SimulationLaunchPage() {
           org_id,
           persona_id: personaToUse.id,
           scenario_type: selectedScenario,
-          ip_address: ipAddress,
+          ...(ipAddress ? { ip_address: ipAddress } : {}),
         }),
       });
 

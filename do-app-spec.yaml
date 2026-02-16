@@ -26,15 +26,29 @@ services:
         value: "3001"
       - key: NEXT_PUBLIC_SUPABASE_URL
         type: SECRET
+      - key: SUPABASE_URL
+        type: SECRET
       - key: SUPABASE_SERVICE_ROLE_KEY
         type: SECRET
       - key: OPENAI_API_KEY
         type: SECRET
       - key: VALKEY_URL
         type: SECRET
+      - key: ELEVENLABS_API_KEY
+        type: SECRET
+      - key: ELEVENLABS_AGENT_ID
+        type: SECRET
       - key: STRIPE_SECRET_KEY
         type: SECRET
       - key: STRIPE_WEBHOOK_SECRET
+        type: SECRET
+      - key: STRIPE_STARTER_PRICE_ID
+        type: SECRET
+      - key: STRIPE_GROWTH_PRICE_ID
+        type: SECRET
+      - key: STRIPE_SCALE_PRICE_ID
+        type: SECRET
+      - key: STRIPE_ENTERPRISE_PRICE_ID
         type: SECRET
       - key: GOOGLE_CLIENT_ID
         type: SECRET

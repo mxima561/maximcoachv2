@@ -4,7 +4,7 @@ import { createServiceClient } from "../lib/supabase.js";
 
 const CheckTrialSchema = z.object({
   user_id: z.string().uuid(),
-  ip_address: z.string(),
+  ip_address: z.string().optional(),
 });
 
 type CheckTrialResponse = {
@@ -50,6 +50,8 @@ export async function trialRoutes(app: FastifyInstance) {
     reply: { send: (body: CheckTrialResponse) => void },
   ) {
     const { user_id, ip_address } = CheckTrialSchema.parse(request.body);
+    const requestIp = (request as { ip?: string }).ip;
+    const ipAddress = ip_address ?? requestIp ?? "0.0.0.0";
 
     const supabase = createServiceClient();
 
@@ -152,7 +154,7 @@ export async function trialRoutes(app: FastifyInstance) {
       const { count } = await supabase
         .from("trial_sessions")
         .select("*", { count: "exact", head: true })
-        .eq("ip_address", ip_address);
+        .eq("ip_address", ipAddress);
 
       if (count && count >= 5) {
         return reply.send({

@@ -45,6 +45,26 @@ const app = Fastify({
   },
 });
 
+// Capture raw body for Stripe webhooks while still parsing JSON
+app.addContentTypeParser(
+  ["application/json", "application/*+json"],
+  { parseAs: "buffer" },
+  (request, body, done) => {
+    const rawBody =
+      typeof body === "string" ? Buffer.from(body, "utf8") : body;
+    (request as { rawBody?: Buffer }).rawBody = rawBody;
+    if (!rawBody || rawBody.length === 0) {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(rawBody.toString("utf8")));
+    } catch (err) {
+      done(err as Error);
+    }
+  },
+);
+
 await app.register(cors, {
   origin: WEB_ORIGIN,
   methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -54,7 +74,12 @@ await app.register(cors, {
 // Sentry request context tracking
 app.addHook("onRequest", async (request, reply) => {
   // Start a new span for performance tracking
-  const transaction = Sentry.startTransaction({
+  const transaction = (Sentry as unknown as {
+    startTransaction?: (context: Record<string, unknown>) => {
+      setHttpStatus: (code: number) => void;
+      finish: () => void;
+    };
+  }).startTransaction?.({
     op: "http.server",
     name: `${request.method} ${request.routeOptions.url || request.url}`,
     data: {
@@ -88,6 +113,8 @@ await app.register(sessionRoutes);
 
 // Sentry error handler
 app.setErrorHandler((error, request, reply) => {
+  const err = error as { statusCode?: number; message?: string };
+  const statusCode = typeof err.statusCode === "number" ? err.statusCode : 500;
   // Extract user info from request if available
   const userId = request.headers["x-user-id"] as string;
   const authorization = request.headers.authorization;
@@ -110,15 +137,15 @@ app.setErrorHandler((error, request, reply) => {
     tags: {
       route: request.routeOptions?.url || request.url,
       method: request.method,
-      status_code: error.statusCode || 500,
+      status_code: statusCode,
     },
-    level: error.statusCode && error.statusCode < 500 ? 'warning' : 'error',
+    level: statusCode < 500 ? "warning" : "error",
   });
 
   // Finish transaction if exists
   const transaction = (request as any).sentryTransaction;
   if (transaction) {
-    transaction.setHttpStatus(error.statusCode || 500);
+    transaction.setHttpStatus(statusCode);
     transaction.finish();
   }
 
@@ -126,9 +153,9 @@ app.setErrorHandler((error, request, reply) => {
   request.log.error(error);
 
   // Send response
-  reply.status(error.statusCode || 500).send({
-    error: error.message || "Internal Server Error",
-    statusCode: error.statusCode || 500,
+  reply.status(statusCode).send({
+    error: err.message || "Internal Server Error",
+    statusCode,
   });
 });
 

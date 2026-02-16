@@ -167,11 +167,11 @@ export async function billingRoutes(app: FastifyInstance) {
     startOfMonth.setHours(0, 0, 0, 0);
 
     const { data: orgUsers } = await supabase
-      .from("users")
-      .select("id")
-      .eq("org_id", query.org_id);
+      .from("organization_users")
+      .select("user_id")
+      .eq("organization_id", query.org_id);
 
-    const userIds = orgUsers?.map((u) => u.id) ?? [];
+    const userIds = orgUsers?.map((u) => u.user_id) ?? [];
 
     let sessionCount = 0;
     if (userIds.length > 0) {
