@@ -3,9 +3,6 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@maxima/shared"],
-  experimental: {
-    instrumentationHook: true,
-  },
 };
 
 export default withSentryConfig(nextConfig, {
@@ -24,8 +21,10 @@ export default withSentryConfig(nextConfig, {
   // Disable source maps in production for security
   hideSourceMaps: true,
 
-  // Automatically annotate errors with component stack traces
-  reactComponentAnnotation: {
-    enabled: true,
+  // Automatically annotate errors with component stack traces (Next.js 16 syntax)
+  webpack: {
+    reactComponentAnnotation: {
+      enabled: true,
+    },
   },
 });
