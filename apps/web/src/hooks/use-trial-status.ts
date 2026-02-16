@@ -112,6 +112,7 @@ export function useTrialStatus(): TrialStatus {
           sessionsRemaining: 0,
           canCreateSessions: false,
           isLoading: false,
+          orgId: null,
         });
       }
     }
