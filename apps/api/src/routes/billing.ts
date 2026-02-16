@@ -310,10 +310,10 @@ export async function billingRoutes(app: FastifyInstance) {
           const invoice = event.data.object as Stripe.Invoice;
           const customerId = invoice.customer as string;
 
-          // Find org by customer ID and log the failure
+          // Find org by customer ID
           const { data: org } = await supabase
             .from("organizations")
-            .select("id")
+            .select("id, payment_failed_at, payment_failure_count, plan")
             .eq("stripe_customer_id", customerId)
             .single();
 
@@ -322,6 +322,82 @@ export async function billingRoutes(app: FastifyInstance) {
               { org_id: org.id, invoice_id: invoice.id },
               "Invoice payment failed",
             );
+
+            // If this is the first failure, set payment_failed_at
+            if (!org.payment_failed_at) {
+              await supabase
+                .from("organizations")
+                .update({
+                  payment_failed_at: new Date().toISOString(),
+                  payment_failure_count: 1,
+                })
+                .eq("id", org.id);
+
+              // TODO: Send email notification about payment failure
+              app.log.info(
+                { org_id: org.id },
+                "Grace period started - 7 days to update payment",
+              );
+            } else {
+              // Increment failure count
+              await supabase
+                .from("organizations")
+                .update({
+                  payment_failure_count: (org.payment_failure_count || 0) + 1,
+                })
+                .eq("id", org.id);
+
+              // Check if grace period (7 days) has expired
+              const failedAt = new Date(org.payment_failed_at);
+              const daysSinceFailure = Math.floor(
+                (Date.now() - failedAt.getTime()) / (1000 * 60 * 60 * 24)
+              );
+
+              if (daysSinceFailure >= 7) {
+                // Grace period expired - downgrade to free
+                await supabase
+                  .from("organizations")
+                  .update({
+                    plan: "free",
+                    payment_failed_at: null,
+                    payment_failure_count: 0,
+                    plan_updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", org.id);
+
+                app.log.warn(
+                  { org_id: org.id, previous_plan: org.plan },
+                  "Downgraded to free plan after 7-day grace period",
+                );
+
+                // TODO: Send email notification about downgrade
+              }
+            }
+          }
+          break;
+        }
+
+        case "invoice.payment_succeeded": {
+          const invoice = event.data.object as Stripe.Invoice;
+          const customerId = invoice.customer as string;
+
+          // Clear payment failure tracking on successful payment
+          const { data: org } = await supabase
+            .from("organizations")
+            .select("id, payment_failed_at")
+            .eq("stripe_customer_id", customerId)
+            .single();
+
+          if (org?.payment_failed_at) {
+            await supabase
+              .from("organizations")
+              .update({
+                payment_failed_at: null,
+                payment_failure_count: 0,
+              })
+              .eq("id", org.id);
+
+            app.log.info({ org_id: org.id }, "Payment recovered");
           }
           break;
         }
