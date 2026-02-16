@@ -3,6 +3,8 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@maxima/shared"],
+  // Disable source maps in production for security
+  productionBrowserSourceMaps: false,
 };
 
 export default withSentryConfig(nextConfig, {
@@ -17,9 +19,6 @@ export default withSentryConfig(nextConfig, {
 
   // Upload source maps in production only
   widenClientFileUpload: true,
-
-  // Disable source maps in production for security
-  hideSourceMaps: true,
 
   // Automatically annotate errors with component stack traces (Next.js 16 syntax)
   webpack: {
