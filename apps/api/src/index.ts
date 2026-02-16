@@ -1,4 +1,6 @@
 import "dotenv/config";
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { personaRoutes } from "./routes/persona.js";
@@ -11,6 +13,25 @@ import { conversationTokenRoutes } from "./routes/conversation-token.js";
 import { trialRoutes } from "./routes/trial.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { startWorkers, getQueueHealth } from "./lib/queues.js";
+
+// Initialize Sentry
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV || "development",
+  tracesSampleRate: 0.1,
+  profilesSampleRate: 0.1,
+  integrations: [
+    nodeProfilingIntegration(),
+  ],
+  enabled: process.env.NODE_ENV === "production",
+  beforeSend(event, hint) {
+    // Filter out health check errors
+    if (event.request?.url?.includes("/health")) {
+      return null;
+    }
+    return event;
+  },
+});
 
 const PORT = Number(process.env.PORT) || 3001;
 const WEB_ORIGIN = process.env.WEB_ORIGIN || "http://localhost:3000";
@@ -38,6 +59,32 @@ await app.register(billingRoutes);
 await app.register(conversationTokenRoutes);
 await app.register(trialRoutes);
 await app.register(sessionRoutes);
+
+// Sentry error handler
+app.setErrorHandler((error, request, reply) => {
+  // Log to Sentry
+  Sentry.captureException(error, {
+    contexts: {
+      request: {
+        method: request.method,
+        url: request.url,
+        headers: request.headers,
+      },
+    },
+    user: {
+      id: request.headers["x-user-id"] as string,
+    },
+  });
+
+  // Log locally
+  request.log.error(error);
+
+  // Send response
+  reply.status(error.statusCode || 500).send({
+    error: error.message || "Internal Server Error",
+    statusCode: error.statusCode || 500,
+  });
+});
 
 app.get("/health", async () => {
   const queues = await getQueueHealth().catch(() => null);
