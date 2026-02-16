@@ -66,22 +66,22 @@ export default function IntegrationsPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from("users")
-        .select("org_id, role")
-        .eq("id", user.id)
-        .single();
+      const { data: orgUser } = await supabase
+        .from("organization_users")
+        .select("organization_id, role")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (!profile?.org_id) return;
-      if (profile.role !== "admin") return;
+      if (!orgUser?.organization_id) return;
+      if (orgUser.role !== "admin") return;
 
-      setOrgId(profile.org_id);
+      setOrgId(orgUser.organization_id);
 
       // Fetch statuses for all providers
       const results: Record<string, IntegrationStatus> = {};
       for (const p of PROVIDERS) {
         const res = await fetch(
-          `${API_BASE}/api/integrations/${p.id}/${profile.org_id}/status`,
+          `${API_BASE}/api/integrations/${p.id}/${orgUser.organization_id}/status`,
         );
         if (res.ok) {
           results[p.id] = await res.json();

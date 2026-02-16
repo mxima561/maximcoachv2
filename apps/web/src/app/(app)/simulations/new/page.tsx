@@ -235,7 +235,7 @@ export default function SimulationLaunchPage() {
         ipAddress = "unknown";
       }
 
-      const trialCheckRes = await fetch(`${apiUrl}/check-trial`, {
+      const trialCheckRes = await fetch(`${apiUrl}/api/sessions/check-trial`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -247,6 +247,25 @@ export default function SimulationLaunchPage() {
       const trialCheck = await trialCheckRes.json();
 
       if (!trialCheck.allowed) {
+        if (
+          ["trial_expired", "ip_limit_reached", "upgrade_required"].includes(
+            trialCheck.reason as string
+          )
+        ) {
+          try {
+            await fetch(`${apiUrl}/track-upgrade-click`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                org_id,
+                source: "session_blocked",
+              }),
+            });
+          } catch (err) {
+            console.error("Failed to track upgrade click:", err);
+          }
+        }
+
         const messages: Record<string, string> = {
           trial_expired: "Your trial has expired. Please upgrade to continue creating sessions.",
           trial_admin_only: "Only admins can create sessions during the trial period. Please contact your organization admin.",
@@ -263,7 +282,7 @@ export default function SimulationLaunchPage() {
 
       // Create session via API to ensure trial tracking
       const { data: { session: authSession } } = await supabase.auth.getSession();
-      const sessionRes = await fetch(`${apiUrl}/create`, {
+      const sessionRes = await fetch(`${apiUrl}/api/sessions/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

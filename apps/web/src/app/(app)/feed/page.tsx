@@ -52,26 +52,26 @@ export default function FeedPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from("users")
-        .select("org_id")
-        .eq("id", user.id)
-        .single();
+      const { data: orgUser } = await supabase
+        .from("organization_users")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (!profile?.org_id) return;
+      if (!orgUser?.organization_id) return;
 
       // Get all org user IDs
       const { data: orgUsers } = await supabase
-        .from("users")
-        .select("id")
-        .eq("org_id", profile.org_id);
+        .from("organization_users")
+        .select("user_id")
+        .eq("organization_id", orgUser.organization_id);
 
       if (!orgUsers?.length) {
         setLoading(false);
         return;
       }
 
-      const userIds = orgUsers.map((u) => u.id);
+      const userIds = orgUsers.map((u) => u.user_id as string);
 
       const { data } = await supabase
         .from("clips")

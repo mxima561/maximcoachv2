@@ -31,7 +31,7 @@ export default function PricingPage() {
     if (!orgId) return;
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
       await fetch(`${apiUrl}/track-upgrade-click`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,6 +44,43 @@ export default function PricingPage() {
     } catch (err) {
       console.error("Failed to track upgrade click:", err);
     }
+  };
+
+  const handleCheckout = async (plan: (typeof plans)[number]) => {
+    if (!orgId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        window.location.href = "/onboarding";
+      } else {
+        window.location.href = "/signup";
+      }
+      return;
+    }
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const origin = window.location.origin;
+
+    const res = await fetch(`${apiUrl}/api/billing/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        org_id: orgId,
+        plan,
+        success_url: `${origin}/settings/billing?checkout=success`,
+        cancel_url: `${origin}/pricing?checkout=canceled`,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => "");
+      throw new Error(errorText || "Failed to start checkout");
+    }
+
+    const data = (await res.json()) as { url?: string };
+    if (!data.url) {
+      throw new Error("Checkout URL missing");
+    }
+    window.location.href = data.url;
   };
 
   return (
@@ -117,9 +154,16 @@ export default function PricingPage() {
               <button
                 onClick={async () => {
                   await trackUpgradeClick(planKey);
-                  window.location.href = plan.price !== null
-                    ? `/api/billing/checkout?plan=${planKey}`
-                    : "/contact";
+                  if (plan.price === null) {
+                    window.location.href = "/contact";
+                    return;
+                  }
+                  try {
+                    await handleCheckout(planKey);
+                  } catch (err) {
+                    console.error("Checkout error:", err);
+                    alert("Unable to start checkout. Please try again.");
+                  }
                 }}
                 className={`block w-full rounded-md px-4 py-2 text-center text-sm font-medium transition-colors ${
                   isRecommended

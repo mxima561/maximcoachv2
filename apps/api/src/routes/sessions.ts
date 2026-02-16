@@ -11,45 +11,56 @@ const CreateSessionSchema = z.object({
 });
 
 export async function sessionRoutes(app: FastifyInstance) {
+  async function handleCreateSession(
+    request: { body: z.infer<typeof CreateSessionSchema> },
+    reply: { code: (statusCode: number) => { send: (body: unknown) => void }; send: (body: unknown) => void },
+  ) {
+    const { user_id, org_id, persona_id, scenario_type, ip_address } =
+      CreateSessionSchema.parse(request.body);
+
+    const supabase = createServiceClient();
+
+    // Create the session
+    const { data: session, error: sessionError } = await supabase
+      .from("sessions")
+      .insert({
+        user_id,
+        org_id,
+        persona_id,
+        scenario_type,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (sessionError || !session) {
+      return reply.code(500).send({ error: "Failed to create session" });
+    }
+
+    // Track trial session if applicable
+    if (ip_address) {
+      await trackTrialSession(
+        org_id,
+        user_id,
+        session.id,
+        scenario_type,
+        ip_address
+      );
+    }
+
+    return reply.send(session);
+  }
+
   // Create a new session with trial tracking
   app.post<{ Body: z.infer<typeof CreateSessionSchema> }>(
     "/create",
-    async (request, reply) => {
-      const { user_id, org_id, persona_id, scenario_type, ip_address } =
-        CreateSessionSchema.parse(request.body);
+    async (request, reply) => handleCreateSession(request, reply),
+  );
 
-      const supabase = createServiceClient();
-
-      // Create the session
-      const { data: session, error: sessionError } = await supabase
-        .from("sessions")
-        .insert({
-          user_id,
-          org_id,
-          persona_id,
-          scenario_type,
-          status: "pending",
-        })
-        .select()
-        .single();
-
-      if (sessionError || !session) {
-        return reply.code(500).send({ error: "Failed to create session" });
-      }
-
-      // Track trial session if applicable
-      if (ip_address) {
-        await trackTrialSession(
-          org_id,
-          user_id,
-          session.id,
-          scenario_type,
-          ip_address
-        );
-      }
-
-      return reply.send(session);
-    },
+  // PRD-compatible route
+  app.post<{ Body: z.infer<typeof CreateSessionSchema> }>(
+    "/api/sessions/create",
+    async (request, reply) => handleCreateSession(request, reply),
   );
 }
 

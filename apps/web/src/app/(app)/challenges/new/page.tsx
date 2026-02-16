@@ -106,14 +106,14 @@ export default function NewChallengePage() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("users")
-      .select("org_id, role")
-      .eq("id", user.id)
-      .single();
+    const { data: orgUser } = await supabase
+      .from("organization_users")
+      .select("organization_id, role")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (!profile?.org_id) return;
-    if (profile.role !== "admin" && profile.role !== "manager") {
+    if (!orgUser?.organization_id) return;
+    if (orgUser.role !== "admin" && orgUser.role !== "manager") {
       setErrors({ title: "Only managers and admins can create challenges" });
       setSubmitting(false);
       return;
@@ -127,7 +127,7 @@ export default function NewChallengePage() {
       .from("challenges")
       .insert({
         ...parsed.data,
-        org_id: profile.org_id,
+        org_id: orgUser.organization_id,
         status: "active",
         end_date: endDate.toISOString(),
       })

@@ -111,14 +111,14 @@ export default function NewScenarioPage() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("users")
-      .select("org_id, role")
-      .eq("id", user.id)
-      .single();
+    const { data: orgUser } = await supabase
+      .from("organization_users")
+      .select("organization_id, role")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (!profile?.org_id) return;
-    if (profile.role !== "admin" && profile.role !== "manager") {
+    if (!orgUser?.organization_id) return;
+    if (orgUser.role !== "admin" && orgUser.role !== "manager") {
       setErrors({ name: "Only managers and admins can create scenarios" });
       setSubmitting(false);
       return;
@@ -130,7 +130,7 @@ export default function NewScenarioPage() {
       industry: parsed.data.industry,
       type: parsed.data.type,
       config_json: parsed.data.config_json,
-      org_id: profile.org_id,
+      org_id: orgUser.organization_id,
       is_custom: true,
     });
 

@@ -41,20 +41,27 @@ export const PLAN_DETAILS = {
     price: 0,
     duration: 14, // days
     sessionLimit: 5,
-    features: ["14-day trial", "5 sessions", "Admin-only access"],
+    features: ["14-day access", "5 total sessions", "All scenarios"],
   },
   starter: {
     name: "Starter",
     price: 299,
-    features: ["Unlimited sessions", "Basic analytics", "Email support"],
+    features: [
+      "Up to 5 reps",
+      "15 sessions/rep/month (75 pool)",
+      "Basic analytics",
+      "Email support",
+    ],
   },
   growth: {
     name: "Growth",
     price: 599,
     recommended: true,
     features: [
-      "Everything in Starter",
-      "Advanced analytics",
+      "Up to 15 reps",
+      "15 sessions/rep/month (225 pool)",
+      "Leaderboards",
+      "Team challenges",
       "Priority support",
     ],
   },
@@ -62,18 +69,22 @@ export const PLAN_DETAILS = {
     name: "Scale",
     price: 999,
     features: [
-      "Everything in Growth",
-      "Custom integrations",
-      "Dedicated success manager",
+      "Up to 30 reps",
+      "20 sessions/rep/month (600 pool)",
+      "Custom scenarios",
+      "CRM integration",
+      "Advanced analytics",
     ],
   },
   enterprise: {
     name: "Enterprise",
     price: null, // custom pricing
     features: [
-      "Everything in Scale",
-      "White-label options",
-      "SLA guarantee",
+      "30+ reps (negotiated)",
+      "Unlimited sessions",
+      "SSO/SAML",
+      "API access",
+      "Quarterly business reviews",
     ],
   },
   free: {

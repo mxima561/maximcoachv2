@@ -28,11 +28,23 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const { data: orgUser } = await supabase
+    .from("organization_users")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!orgUser?.organization_id) {
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/onboarding`
+    );
+  }
+
   // Store Google tokens in integrations table
   await supabase.from("integrations").upsert(
     {
       user_id: user.id,
-      org_id: user.user_metadata?.org_id,
+      org_id: orgUser.organization_id,
       provider: "google_sheets",
       credentials_json: tokens,
       status: "active",

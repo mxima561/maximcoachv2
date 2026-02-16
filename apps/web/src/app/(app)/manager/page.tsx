@@ -44,20 +44,20 @@ export default function ManagerDashboardPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from("users")
-        .select("org_id, role")
-        .eq("id", user.id)
-        .single();
+      const { data: orgUser } = await supabase
+        .from("organization_users")
+        .select("organization_id, role")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (!profile?.org_id) return;
-      if (profile.role !== "manager" && profile.role !== "admin") return;
+      if (!orgUser?.organization_id) return;
+      if (orgUser.role !== "manager" && orgUser.role !== "admin") return;
 
-      // Fetch all org users who are reps
+      // Fetch all org users
       const { data: orgUsers } = await supabase
-        .from("users")
-        .select("id, name")
-        .eq("org_id", profile.org_id);
+        .from("organization_users")
+        .select("user_id, users(name)")
+        .eq("organization_id", orgUser.organization_id);
 
       if (!orgUsers?.length) {
         setLoading(false);
@@ -72,11 +72,15 @@ export default function ManagerDashboardPage() {
       twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
       for (const u of orgUsers) {
+        const userId = u.user_id as string;
+        const userRecord = Array.isArray(u.users) ? u.users[0] : u.users;
+        const userName =
+          (userRecord as { name?: string | null } | null)?.name ?? "Unknown";
         // Total sessions + avg score
         const { data: scorecards } = await supabase
           .from("scorecards")
           .select("overall_score, created_at")
-          .eq("user_id", u.id)
+          .eq("user_id", userId)
           .order("created_at", { ascending: false });
 
         const total = scorecards?.length ?? 0;
@@ -97,8 +101,8 @@ export default function ManagerDashboardPage() {
           .reverse();
 
         repCards.push({
-          id: u.id,
-          name: u.name ?? "Unknown",
+          id: userId,
+          name: userName,
           total_sessions: total,
           avg_score: avgScore,
           sparkline,
@@ -134,8 +138,8 @@ export default function ManagerDashboardPage() {
         else if (thisWeekAvg < prevWeekAvg - 3) trend = "down";
 
         leaderboardRows.push({
-          user_id: u.id,
-          user_name: u.name ?? "Unknown",
+          user_id: userId,
+          user_name: userName,
           avg_score: Math.round(thisWeekAvg),
           sessions_this_week: thisWeekScores.length,
           trend,

@@ -41,29 +41,33 @@ export function H2HChallenge({ sessionId, scenarioType }: H2HChallengeProps) {
       if (!user) return;
       setCurrentUserId(user.id);
 
-      const { data: profile } = await supabase
-        .from("users")
-        .select("org_id")
-        .eq("id", user.id)
-        .single();
+      const { data: orgUser } = await supabase
+        .from("organization_users")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (!profile?.org_id) return;
+      if (!orgUser?.organization_id) return;
 
       const { data: orgUsers } = await supabase
-        .from("users")
-        .select("id, name")
-        .eq("org_id", profile.org_id)
-        .neq("id", user.id);
+        .from("organization_users")
+        .select("user_id, users(name)")
+        .eq("organization_id", orgUser.organization_id)
+        .neq("user_id", user.id);
 
       if (!orgUsers) return;
 
       // Fetch avg scores
       const withScores: Teammate[] = [];
       for (const u of orgUsers) {
+        const userId = u.user_id as string;
+        const userRecord = Array.isArray(u.users) ? u.users[0] : u.users;
+        const userName =
+          (userRecord as { name?: string | null } | null)?.name ?? "Unknown";
         const { data: scores } = await supabase
           .from("scorecards")
           .select("overall_score")
-          .eq("user_id", u.id);
+          .eq("user_id", userId);
 
         const avg =
           scores && scores.length > 0
@@ -73,7 +77,7 @@ export function H2HChallenge({ sessionId, scenarioType }: H2HChallengeProps) {
               )
             : 0;
 
-        withScores.push({ id: u.id, name: u.name ?? "Unknown", avg_score: avg });
+        withScores.push({ id: userId, name: userName, avg_score: avg });
       }
 
       setTeammates(withScores.sort((a, b) => b.avg_score - a.avg_score));

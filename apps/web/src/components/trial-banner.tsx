@@ -10,10 +10,12 @@ export function TrialBanner() {
 
   if (isLoading || !isTrialActive) return null;
 
+  const isExpired = daysRemaining <= 0;
+  const isLimitReached = sessionsRemaining <= 0;
   const urgency =
-    daysRemaining <= 3 || sessionsRemaining <= 1
+    isExpired || isLimitReached || daysRemaining <= 3 || sessionsRemaining <= 1
       ? "urgent"
-      : daysRemaining <= 7
+      : daysRemaining <= 7 || sessionsRemaining <= 2
       ? "warning"
       : "info";
 
@@ -27,7 +29,7 @@ export function TrialBanner() {
   const handleUpgradeClick = async () => {
     if (orgId) {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
         await fetch(`${apiUrl}/track-upgrade-click`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -45,10 +47,20 @@ export function TrialBanner() {
 
   return (
     <div className={`sticky top-0 z-50 px-4 py-2 text-center text-sm ${bgColor}`}>
-      <span className="font-medium">
-        Trial: {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining,{" "}
-        {sessionsRemaining} session{sessionsRemaining !== 1 ? "s" : ""} left
-      </span>
+      {isExpired ? (
+        <span className="font-medium">
+          Trial expired. Upgrade to continue training.
+        </span>
+      ) : isLimitReached ? (
+        <span className="font-medium">
+          Trial session limit reached. Upgrade to continue.
+        </span>
+      ) : (
+        <span className="font-medium">
+          Trial: {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining,{" "}
+          {sessionsRemaining} session{sessionsRemaining !== 1 ? "s" : ""} left
+        </span>
+      )}
       {" · "}
       <button
         onClick={handleUpgradeClick}

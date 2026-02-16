@@ -4,8 +4,63 @@ import { useTrialStatus } from "@/hooks/use-trial-status";
 import Link from "next/link";
 
 export default function BillingSettingsPage() {
-  const { isTrialActive, daysRemaining, sessionsRemaining, isLoading } =
+  const { isTrialActive, daysRemaining, sessionsRemaining, isLoading, orgId } =
     useTrialStatus();
+
+  const handleUpgradeClick = async () => {
+    if (!orgId) {
+      window.location.href = "/pricing";
+      return;
+    }
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      await fetch(`${apiUrl}/track-upgrade-click`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          org_id: orgId,
+          source: "billing_page",
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to track upgrade click:", err);
+    }
+
+    window.location.href = "/pricing";
+  };
+
+  const handleOpenPortal = async () => {
+    if (!orgId) {
+      alert("Organization not found.");
+      return;
+    }
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      const res = await fetch(`${apiUrl}/api/billing/portal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          org_id: orgId,
+          return_url: window.location.href,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => "");
+        throw new Error(errorText || "Failed to open billing portal");
+      }
+
+      const data = (await res.json()) as { url?: string };
+      if (!data.url) throw new Error("Missing portal URL");
+
+      window.location.href = data.url;
+    } catch (err) {
+      console.error("Failed to open billing portal:", err);
+      alert("Unable to open billing portal. Please try again.");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -57,6 +112,10 @@ export default function BillingSettingsPage() {
           <Link
             href="/pricing"
             className="inline-block rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            onClick={(event) => {
+              event.preventDefault();
+              void handleUpgradeClick();
+            }}
           >
             Upgrade Now
           </Link>
@@ -74,19 +133,26 @@ export default function BillingSettingsPage() {
           </div>
         )}
 
-        <div className="space-y-4">
-          <a
-            href="/api/billing/portal"
-            className="inline-block rounded-md border border-input bg-background px-6 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-          >
-            Manage via Stripe Portal
-          </a>
+        {!isTrialActive ? (
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={handleOpenPortal}
+              className="inline-block rounded-md border border-input bg-background px-6 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              Manage via Stripe Portal
+            </button>
 
-          <p className="text-xs text-muted-foreground">
-            Access your Stripe customer portal to update payment methods, view
-            invoices, and manage your subscription.
+            <p className="text-xs text-muted-foreground">
+              Access your Stripe customer portal to update payment methods, view
+              invoices, and manage your subscription.
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Portal access unlocks after you upgrade to a paid plan.
           </p>
-        </div>
+        )}
       </div>
 
       <div className="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950">

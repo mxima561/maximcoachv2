@@ -32,18 +32,18 @@ export default function ChallengesPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from("users")
-        .select("org_id")
-        .eq("id", user.id)
-        .single();
+      const { data: orgUser } = await supabase
+        .from("organization_users")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (!profile?.org_id) return;
+      if (!orgUser?.organization_id) return;
 
       const { data } = await supabase
         .from("challenges")
         .select("*, challenge_entries(count)")
-        .eq("org_id", profile.org_id)
+        .eq("org_id", orgUser.organization_id)
         .order("created_at", { ascending: false });
 
       setChallenges(data ?? []);

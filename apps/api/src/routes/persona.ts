@@ -60,9 +60,10 @@ const requestSchema = z.object({
 });
 
 export async function personaRoutes(app: FastifyInstance) {
-  app.post<{ Body: z.infer<typeof requestSchema> }>(
-    "/api/personas/generate",
-    async (request, reply) => {
+  async function handleGeneratePersona(
+    request: { body: z.infer<typeof requestSchema> },
+    reply: { status: (code: number) => { send: (body: unknown) => void }; send: (body: unknown) => void },
+  ) {
       const parsed = requestSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(400).send({ error: parsed.error.format() });
@@ -159,7 +160,17 @@ export async function personaRoutes(app: FastifyInstance) {
       }
 
       return reply.send(persona);
-    },
+  }
+
+  app.post<{ Body: z.infer<typeof requestSchema> }>(
+    "/api/personas/generate",
+    async (request, reply) => handleGeneratePersona(request, reply),
+  );
+
+  // PRD-compatible alias
+  app.post<{ Body: z.infer<typeof requestSchema> }>(
+    "/api/persona/generate",
+    async (request, reply) => handleGeneratePersona(request, reply),
   );
 }
 

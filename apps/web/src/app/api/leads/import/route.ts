@@ -106,14 +106,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Get user's org_id
-  const { data: profile } = await supabase
-    .from("users")
-    .select("org_id")
-    .eq("id", user.id)
-    .single();
+  // Get user's organization_id
+  const { data: orgUser } = await supabase
+    .from("organization_users")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  const orgId = profile?.org_id;
+  const orgId = orgUser?.organization_id;
+
+  if (!orgId) {
+    return NextResponse.json(
+      { error: "Organization not found for user." },
+      { status: 400 }
+    );
+  }
 
   // Get existing leads for duplicate detection
   const { data: existingLeads } = await supabase

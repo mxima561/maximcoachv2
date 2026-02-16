@@ -52,9 +52,10 @@ const requestSchema = z.object({
 });
 
 export async function scorecardRoutes(app: FastifyInstance) {
-  app.post<{ Body: z.infer<typeof requestSchema> }>(
-    "/api/scorecards/generate",
-    async (request, reply) => {
+  async function handleGenerateScorecard(
+    request: { body: z.infer<typeof requestSchema> },
+    reply: { status: (code: number) => { send: (body: unknown) => void }; send: (body: unknown) => void },
+  ) {
       const parsed = requestSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(400).send({ error: parsed.error.format() });
@@ -161,6 +162,16 @@ Respond ONLY with the JSON object, no markdown fences.`,
       );
 
       return reply.send({ ...scorecard, elo: eloResult });
-    },
+  }
+
+  app.post<{ Body: z.infer<typeof requestSchema> }>(
+    "/api/scorecards/generate",
+    async (request, reply) => handleGenerateScorecard(request, reply),
+  );
+
+  // PRD-compatible alias
+  app.post<{ Body: z.infer<typeof requestSchema> }>(
+    "/api/scorecard/generate",
+    async (request, reply) => handleGenerateScorecard(request, reply),
   );
 }
