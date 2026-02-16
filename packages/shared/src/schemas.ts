@@ -5,7 +5,7 @@ import {
   SESSION_STATUSES,
   CRM_SOURCES,
   PLANS,
-} from "./constants.js";
+} from "./constants";
 
 // ── Organization ──────────────────────────────────────────────
 
