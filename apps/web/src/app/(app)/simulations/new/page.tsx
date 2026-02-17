@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Check,
   Loader2,
+  Building2,
   Phone,
   Search,
   ShieldAlert,
@@ -17,6 +18,8 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -29,12 +32,12 @@ import { createClient } from "@/lib/supabase/client";
 
 // ── Types ─────────────────────────────────────────────────────
 
-interface Lead {
-  id: string;
+interface ProspectProfile {
   name: string;
   company: string;
-  title: string | null;
-  industry: string | null;
+  title: string;
+  industry: string;
+  primaryChallenge: string;
 }
 
 interface PersonaResult {
@@ -94,63 +97,37 @@ export default function SimulationLaunchPage() {
   const supabase = createClient();
 
   const [step, setStep] = useState(1);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [profile, setProfile] = useState<ProspectProfile>({
+    name: "",
+    company: "",
+    title: "",
+    industry: "",
+    primaryChallenge: "",
+  });
   const [selectedScenario, setSelectedScenario] = useState<ScenarioType | null>(
     null,
   );
   const [persona, setPersona] = useState<PersonaResult | null>(null);
   const [generatingPersona, setGeneratingPersona] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const profileReady = Boolean(profile.company.trim());
 
   // Pre-select from query params
   useEffect(() => {
-    const leadId = searchParams.get("lead_id");
     const scenario = searchParams.get("scenario") as ScenarioType | null;
 
     if (scenario && SCENARIOS.some((s) => s.type === scenario)) {
       setSelectedScenario(scenario);
-      if (!leadId) setStep(1);
+      setStep(profileReady ? 3 : 2);
     }
-
-    if (leadId) {
-      supabase
-        .from("leads")
-        .select("id, name, company, title, industry")
-        .eq("id", leadId)
-        .single()
-        .then(({ data }) => {
-          if (data) {
-            setSelectedLead(data);
-            if (scenario) setStep(3);
-            else setStep(2);
-          }
-        });
-    }
-  }, []);
-
-  // Fetch leads
-  useEffect(() => {
-    supabase
-      .from("leads")
-      .select("id, name, company, title, industry")
-      .order("created_at", { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        if (data) setLeads(data);
-      });
-  }, []);
-
-  const filteredLeads = leads.filter(
-    (lead) =>
-      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.company.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  }, [searchParams, profileReady]);
 
   async function handleGeneratePersona() {
-    if (!selectedLead || !selectedScenario) return;
+    if (!selectedScenario || !profileReady) return;
     setGeneratingPersona(true);
+    setError(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -163,7 +140,16 @@ export default function SimulationLaunchPage() {
             ? { Authorization: `Bearer ${session.access_token}` }
             : {}),
         },
-        body: JSON.stringify({ lead_id: selectedLead.id }),
+        body: JSON.stringify({
+          scenario_type: selectedScenario,
+          prospect_profile: {
+            name: profile.name.trim() || undefined,
+            company: profile.company.trim(),
+            title: profile.title.trim() || undefined,
+            industry: profile.industry.trim() || undefined,
+            primary_challenge: profile.primaryChallenge.trim() || undefined,
+          },
+        }),
       });
 
       if (res.ok) {
@@ -174,28 +160,39 @@ export default function SimulationLaunchPage() {
         setGeneratingPersona(false);
         await handleStartSession(data);
       } else {
-        // Log the error details for debugging
         const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        const message =
+          typeof errorData?.message === "string"
+            ? errorData.message
+            : "Failed to generate persona. Please try again.";
+        setError(message);
         console.error("Persona generation failed:", {
           status: res.status,
           statusText: res.statusText,
           error: errorData,
-          leadId: selectedLead.id,
+          scenario: selectedScenario,
         });
         setGeneratingPersona(false);
       }
     } catch (error) {
       console.error("Persona generation exception:", error);
+      setError("Could not generate persona. Please try again.");
       setGeneratingPersona(false);
     }
   }
 
   async function handleStartSession(personaData?: PersonaResult) {
     const personaToUse = personaData || persona;
-    if (!selectedLead || !selectedScenario || !personaToUse) return;
+    if (!selectedScenario || !personaToUse) return;
     setStartingSession(true);
 
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = {};
+      if (authSession?.access_token) {
+        authHeaders.Authorization = `Bearer ${authSession.access_token}`;
+      }
+
       // Get user
       const {
         data: { user },
@@ -236,9 +233,11 @@ export default function SimulationLaunchPage() {
 
       const trialCheckRes = await fetch(`${apiUrl}/api/sessions/check-trial`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
         body: JSON.stringify({
-          user_id: user.id,
           ...(ipAddress ? { ip_address: ipAddress } : {}),
         }),
       });
@@ -254,7 +253,10 @@ export default function SimulationLaunchPage() {
           try {
             await fetch(`${apiUrl}/track-upgrade-click`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                ...authHeaders,
+              },
               body: JSON.stringify({
                 org_id,
                 source: "session_blocked",
@@ -274,23 +276,20 @@ export default function SimulationLaunchPage() {
         };
 
         const message = messages[trialCheck.reason as string] || "Cannot create session at this time.";
+        setError(message);
         alert(message);
         setStartingSession(false);
         return;
       }
 
       // Create session via API to ensure trial tracking
-      const { data: { session: authSession } } = await supabase.auth.getSession();
       const sessionRes = await fetch(`${apiUrl}/api/sessions/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(authSession?.access_token
-            ? { Authorization: `Bearer ${authSession.access_token}` }
-            : {}),
+          ...authHeaders,
         },
         body: JSON.stringify({
-          user_id: user.id,
           org_id,
           persona_id: personaToUse.id,
           scenario_type: selectedScenario,
@@ -302,11 +301,13 @@ export default function SimulationLaunchPage() {
         const session = await sessionRes.json();
         router.push(`/simulate/${session.id}`);
       } else {
+        setError("Failed to create session. Please try again.");
         alert("Failed to create session. Please try again.");
         setStartingSession(false);
       }
     } catch (error) {
       console.error("Session creation error:", error);
+      setError("An error occurred while creating the session.");
       alert("An error occurred while creating the session. Please try again.");
       setStartingSession(false);
     }
@@ -343,7 +344,7 @@ export default function SimulationLaunchPage() {
             <span
               className={`text-sm ${s === step ? "font-medium" : "text-muted-foreground"}`}
             >
-              {s === 1 ? "Select Lead" : s === 2 ? "Pick Scenario" : "Review & Start"}
+              {s === 1 ? "Prospect Profile" : s === 2 ? "Pick Scenario" : "Review & Start"}
             </span>
             {s < 3 && (
               <ArrowRight className="size-4 text-muted-foreground" />
@@ -352,54 +353,92 @@ export default function SimulationLaunchPage() {
         ))}
       </div>
 
-      {/* Step 1: Select Lead */}
+      {error && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {/* Step 1: Prospect profile */}
       {step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Select a Lead</CardTitle>
+            <CardTitle>Prospect Profile</CardTitle>
             <CardDescription>
-              Choose the lead you want to practice selling to.
+              Add a quick buyer profile. No lead import required.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Input
-              placeholder="Search leads by name or company..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <div className="max-h-80 space-y-2 overflow-y-auto">
-              {filteredLeads.map((lead) => (
-                <div
-                  key={lead.id}
-                  className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent ${selectedLead?.id === lead.id
-                    ? "border-primary bg-primary/5"
-                    : ""
-                    }`}
-                  onClick={() => setSelectedLead(lead)}
-                >
-                  <div>
-                    <p className="font-medium">{lead.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {lead.title ? `${lead.title} at ` : ""}
-                      {lead.company}
-                      {lead.industry ? ` · ${lead.industry}` : ""}
-                    </p>
-                  </div>
-                  {selectedLead?.id === lead.id && (
-                    <Check className="size-5 text-primary" />
-                  )}
-                </div>
-              ))}
-              {filteredLeads.length === 0 && (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No leads found. Import leads first.
-                </p>
-              )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="prospect-name">Prospect Name</Label>
+                <Input
+                  id="prospect-name"
+                  placeholder="Optional"
+                  value={profile.name}
+                  onChange={(e) =>
+                    setProfile((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prospect-company">Company *</Label>
+                <Input
+                  id="prospect-company"
+                  placeholder="Acme Corp"
+                  value={profile.company}
+                  onChange={(e) =>
+                    setProfile((prev) => ({ ...prev, company: e.target.value }))
+                  }
+                />
+              </div>
             </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="prospect-title">Role</Label>
+                <Input
+                  id="prospect-title"
+                  placeholder="VP Sales"
+                  value={profile.title}
+                  onChange={(e) =>
+                    setProfile((prev) => ({ ...prev, title: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prospect-industry">Industry</Label>
+                <Input
+                  id="prospect-industry"
+                  placeholder="SaaS"
+                  value={profile.industry}
+                  onChange={(e) =>
+                    setProfile((prev) => ({ ...prev, industry: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="prospect-challenge">Primary Challenge</Label>
+              <Textarea
+                id="prospect-challenge"
+                placeholder="What challenge is this prospect dealing with?"
+                value={profile.primaryChallenge}
+                rows={3}
+                onChange={(e) =>
+                  setProfile((prev) => ({
+                    ...prev,
+                    primaryChallenge: e.target.value,
+                  }))
+                }
+              />
+            </div>
+
             <div className="flex justify-end">
               <Button
                 onClick={() => setStep(2)}
-                disabled={!selectedLead}
+                disabled={!profileReady}
               >
                 Next: Pick Scenario
                 <ArrowRight className="ml-1 size-4" />
@@ -478,31 +517,44 @@ export default function SimulationLaunchPage() {
       )}
 
       {/* Step 3: Review & Start */}
-      {step === 3 && selectedLead && selectedScenario && (
+      {step === 3 && selectedScenario && (
         <Card>
           <CardHeader>
             <CardTitle>Review & Start</CardTitle>
             <CardDescription>
-              Confirm your setup and generate the AI buyer persona.
+              Confirm your setup and generate an AI buyer persona for training.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border p-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">
-                  Lead
+                  Prospect
                 </p>
-                <p className="mt-1 font-medium">{selectedLead.name}</p>
+                <p className="mt-1 font-medium">
+                  {profile.name.trim() || "AI Prospect"}
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  {selectedLead.title ? `${selectedLead.title} at ` : ""}
-                  {selectedLead.company}
+                  {profile.title.trim() ? `${profile.title.trim()} at ` : ""}
+                  {profile.company.trim()}
                 </p>
+                {profile.industry.trim() && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {profile.industry.trim()}
+                  </p>
+                )}
+                {profile.primaryChallenge.trim() && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {profile.primaryChallenge.trim()}
+                  </p>
+                )}
               </div>
               <div className="rounded-lg border p-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">
                   Scenario
                 </p>
                 <p className="mt-1 font-medium">
+                  <Building2 className="mr-1 inline size-4 text-primary" />
                   {SCENARIOS.find((s) => s.type === selectedScenario)?.name}
                 </p>
                 <p className="text-sm text-muted-foreground">

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/leads?error=google_auth_failed`
+      `${process.env.NEXT_PUBLIC_APP_URL}/settings/integrations?error=google_auth_failed`
     );
   }
 
@@ -53,6 +53,6 @@ export async function GET(request: NextRequest) {
   );
 
   return NextResponse.redirect(
-    `${process.env.NEXT_PUBLIC_APP_URL}/leads?google_connected=true`
+    `${process.env.NEXT_PUBLIC_APP_URL}/settings/integrations?connected=google_sheets`
   );
 }

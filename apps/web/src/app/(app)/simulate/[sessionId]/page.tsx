@@ -37,6 +37,12 @@ function buildPersonaPrompt(persona: any, scenario: string): string {
   const role = persona.role || "Director";
   const company = persona.company || "Tech Corp";
   const tone = persona.tone || "Professional";
+  const painPoints = Array.isArray(persona.pain_points)
+    ? persona.pain_points.join("; ")
+    : persona.pain_points_text || persona.pain_points || "";
+  const objections = Array.isArray(persona.likely_objections)
+    ? persona.likely_objections.join("; ")
+    : persona.objections || persona.likely_objections || "";
 
   // Construct the prompt carefully
   return `
@@ -46,8 +52,8 @@ function buildPersonaPrompt(persona: any, scenario: string): string {
     Context: ${context}
     
     Background: ${persona.background_summary || persona.background || "No background provided."}
-    Pain Points: ${persona.pain_points || ""}
-    Objections: ${persona.objections || ""}
+    Pain Points: ${painPoints}
+    Objections: ${objections}
     
     Instructions:
     - Act naturally according to your role and tone.

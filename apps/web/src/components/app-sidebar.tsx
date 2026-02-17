@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   LayoutDashboard,
   Mic,
-  Users,
+  Radar,
   History,
   Settings,
   UsersRound,
@@ -44,12 +44,12 @@ const NAV_GROUPS = [
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { title: "Simulations", href: "/simulations/new", icon: Mic },
+      { title: "Scenarios", href: "/scenarios", icon: Radar },
     ],
   },
   {
     label: "Data",
     items: [
-      { title: "Leads", href: "/leads", icon: Users },
       { title: "Sessions", href: "/sessions", icon: History },
     ],
   },

@@ -37,13 +37,13 @@ const PROVIDERS = [
   {
     id: "salesforce",
     name: "Salesforce",
-    description: "Sync contacts and leads bi-directionally with Salesforce CRM.",
+    description: "Optionally sync Salesforce context to enrich training scenarios.",
     color: "text-blue-500",
   },
   {
     id: "hubspot",
     name: "HubSpot",
-    description: "Sync contacts and deals from HubSpot CRM.",
+    description: "Optionally sync HubSpot data for realistic account role-play.",
     color: "text-orange-500",
   },
 ] as const;
@@ -152,7 +152,7 @@ export default function IntegrationsPage() {
           CRM Integrations
         </h1>
         <p className="text-muted-foreground">
-          Connect your CRM to automatically sync leads and contacts.
+          Optional. Connect your CRM to enrich simulations with real account context.
         </p>
       </div>
 
@@ -275,7 +275,7 @@ export default function IntegrationsPage() {
             <DialogTitle>Disconnect CRM?</DialogTitle>
             <DialogDescription>
               This will remove the connection and stop automatic syncing. Your
-              existing lead data will not be deleted.
+              existing training data will not be deleted.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

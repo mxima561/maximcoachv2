@@ -32,9 +32,9 @@ const FEATURES = [
   },
   {
     icon: Database,
-    title: "CRM Integration",
+    title: "Scenario Library",
     description:
-      "Import real leads from Salesforce, HubSpot, or Google Sheets. Practice with personas built from actual prospect data.",
+      "Run focused training with built-in and custom sales scenarios. Configure prospect context in seconds and start practicing immediately.",
   },
 ] as const;
 
@@ -65,7 +65,7 @@ const SCALE_FEATURES = [
   "Everything in Growth",
   "Head-to-head mode",
   "Custom scenario builder",
-  "CRM integration (HubSpot, Salesforce)",
+  "Optional CRM integration (HubSpot, Salesforce)",
   "Advanced analytics & reporting",
   "Dedicated success manager",
 ];
