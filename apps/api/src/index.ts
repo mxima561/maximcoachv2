@@ -12,6 +12,7 @@ import { billingRoutes } from "./routes/billing.js";
 import { conversationTokenRoutes } from "./routes/conversation-token.js";
 import { trialRoutes } from "./routes/trial.js";
 import { sessionRoutes } from "./routes/sessions.js";
+import { onboardingRoutes } from "./routes/onboarding.js";
 import { startWorkers, getQueueHealth } from "./lib/queues.js";
 
 // Initialize Sentry
@@ -110,6 +111,7 @@ await app.register(billingRoutes);
 await app.register(conversationTokenRoutes);
 await app.register(trialRoutes);
 await app.register(sessionRoutes);
+await app.register(onboardingRoutes);
 
 // Sentry error handler
 app.setErrorHandler((error, request, reply) => {

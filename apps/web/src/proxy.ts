@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PUBLIC_ROUTES = ["/login", "/signup", "/auth/callback", "/"];
+const PUBLIC_ROUTES = ["/login", "/signup", "/auth/callback", "/contact", "/"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -44,38 +44,57 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Authenticated users on /login or /signup → /dashboard
-  if (user && (pathname === "/login" || pathname === "/signup")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
-
-  // Role-based route protection
-  if (user && (pathname.startsWith("/admin") || pathname.startsWith("/manager"))) {
+  if (user) {
     const { data: membership } = await supabase
       .from("organization_users")
-      .select("role")
+      .select("organization_id, role")
       .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
 
-    const role = membership?.role;
+    const hasOrganization = Boolean(membership?.organization_id);
 
-    if (pathname.startsWith("/admin") && role !== "admin") {
+    // Authenticated users with no org should complete onboarding first.
+    if (!hasOrganization && pathname !== "/onboarding" && !pathname.startsWith("/auth/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/onboarding";
+      return NextResponse.redirect(url);
+    }
+
+    // Authenticated users on /login or /signup go to dashboard/onboarding.
+    if (pathname === "/login" || pathname === "/signup") {
+      const url = request.nextUrl.clone();
+      url.pathname = hasOrganization ? "/dashboard" : "/onboarding";
+      return NextResponse.redirect(url);
+    }
+
+    // If already onboarded, keep /onboarding from becoming a dead-end loop.
+    if (hasOrganization && pathname === "/onboarding") {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }
 
-    if (
-      pathname.startsWith("/manager") &&
-      role !== "manager" &&
-      role !== "admin"
-    ) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+    // Role-based route protection
+    if (pathname.startsWith("/admin") || pathname.startsWith("/manager")) {
+      const role = membership?.role;
+
+      if (pathname.startsWith("/admin") && role !== "admin") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+
+      if (
+        pathname.startsWith("/manager") &&
+        role !== "manager" &&
+        role !== "admin"
+      ) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
     }
   }
 
