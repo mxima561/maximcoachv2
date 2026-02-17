@@ -26,53 +26,36 @@ export default function OnboardingPage() {
         return;
       }
 
-      const trialStartsAt = new Date();
-      const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
 
-      const { data: org, error: orgError } = await supabase
-        .from("organizations")
-        .insert({
-          name: orgName,
-          plan: "trial",
-          trial_starts_at: trialStartsAt.toISOString(),
-          trial_ends_at: trialEndsAt.toISOString(),
-          plan_updated_at: trialStartsAt.toISOString(),
-        })
-        .select()
-        .single();
-
-      if (orgError || !org) {
-        setError(orgError?.message || "Failed to create organization");
+      if (!accessToken) {
+        setError("Your session expired. Please sign in again.");
         setLoading(false);
         return;
       }
 
-      const { error: memberError } = await supabase
-        .from("organization_users")
-        .insert({
-          organization_id: org.id,
-          user_id: user.id,
-          role: "admin",
-        });
-
-      if (memberError) {
-        setError(memberError.message);
-        setLoading(false);
-        return;
-      }
-
-      await supabase.from("trial_events").insert({
-        organization_id: org.id,
-        event_type: "trial_started",
-        metadata: {
-          source: "onboarding",
-          user_email: user.email,
-          org_name: orgName,
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      const response = await fetch(`${apiUrl}/api/onboarding/create-organization`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${accessToken}`,
         },
+        body: JSON.stringify({ name: orgName }),
       });
 
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload?.message || "Failed to create organization");
+        setLoading(false);
+        return;
+      }
+
       router.push("/dashboard");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setLoading(false);
