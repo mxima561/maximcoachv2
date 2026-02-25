@@ -1,9 +1,11 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { requireAuth, requireOrgMembership } from "../lib/auth.js";
+import { sendValidationError } from "../lib/http-errors.js";
 import { createServiceClient } from "../lib/supabase.js";
 
 const CreateSessionSchema = z.object({
-  user_id: z.string().uuid(),
+  user_id: z.string().uuid().optional(),
   org_id: z.string().uuid(),
   persona_id: z.string().uuid().optional(),
   scenario_type: z.enum(["cold_call", "discovery", "objection_handling", "closing"]),
@@ -12,37 +14,119 @@ const CreateSessionSchema = z.object({
 
 export async function sessionRoutes(app: FastifyInstance) {
   async function handleCreateSession(
-    request: { body: z.infer<typeof CreateSessionSchema>; ip?: string },
-    reply: { code: (statusCode: number) => { send: (body: unknown) => void }; send: (body: unknown) => void },
+    request: FastifyRequest,
+    reply: FastifyReply,
   ) {
-    const { user_id, org_id, persona_id, scenario_type, ip_address } =
-      CreateSessionSchema.parse(request.body);
+    const auth = await requireAuth(request, reply);
+    if (!auth) return;
+
+    const parsed = CreateSessionSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error);
+    }
+
+    const { user_id, org_id, persona_id, scenario_type, ip_address } = parsed.data;
+    if (user_id && user_id !== auth.userId) {
+      return reply.status(403).send({
+        code: "FORBIDDEN",
+        message: "Cannot create sessions for a different user",
+      });
+    }
 
     const supabase = createServiceClient();
+    const membership = await requireOrgMembership(reply, org_id, auth.userId);
+    if (!membership) return;
+
+    const { data: org, error: orgError } = await supabase
+      .from("organizations")
+      .select("plan, trial_ends_at")
+      .eq("id", org_id)
+      .single();
+
+    if (orgError || !org) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: "Organization not found" });
+    }
+
+    const ipAddress = ip_address ?? request.ip ?? "0.0.0.0";
+
+    // Enforce trial restrictions server-side to prevent client bypasses.
+    if (org.plan === "free") {
+      return reply.status(403).send({
+        code: "TRIAL_RESTRICTED",
+        reason: "upgrade_required",
+        message: "Please upgrade your plan to create sessions.",
+      });
+    }
+
+    if (org.plan === "trial") {
+      if (org.trial_ends_at && new Date(org.trial_ends_at) < new Date()) {
+        return reply.status(403).send({
+          code: "TRIAL_RESTRICTED",
+          reason: "trial_expired",
+          message: "Your trial has expired. Please upgrade to continue.",
+        });
+      }
+
+      if (membership.role !== "admin") {
+        return reply.status(403).send({
+          code: "TRIAL_RESTRICTED",
+          reason: "trial_admin_only",
+          message: "Only admins can create sessions during trial.",
+        });
+      }
+
+      const { count: orgCount } = await supabase
+        .from("trial_sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("organization_id", org_id);
+
+      if ((orgCount ?? 0) >= 5) {
+        return reply.status(403).send({
+          code: "TRIAL_RESTRICTED",
+          reason: "ip_limit_reached",
+          message: "Trial session limit reached.",
+        });
+      }
+
+      const { count: ipCount } = await supabase
+        .from("trial_sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("ip_address", ipAddress);
+
+      if ((ipCount ?? 0) >= 5) {
+        return reply.status(403).send({
+          code: "TRIAL_RESTRICTED",
+          reason: "ip_limit_reached",
+          message: "Trial session limit reached.",
+        });
+      }
+    }
 
     // Create the session
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
       .insert({
-        user_id,
+        user_id: auth.userId,
         org_id,
         persona_id,
         scenario_type,
         status: "pending",
       })
       .select()
-      .single();
+        .single();
 
     if (sessionError || !session) {
-      return reply.code(500).send({ error: "Failed to create session" });
+      return reply.status(500).send({
+        code: "SESSION_CREATE_FAILED",
+        message: "Failed to create session",
+      });
     }
 
     // Track trial session if applicable
-    const ipAddress = ip_address ?? request.ip;
-    if (ipAddress) {
+    if (ipAddress && org.plan === "trial") {
       await trackTrialSession(
         org_id,
-        user_id,
+        auth.userId,
         session.id,
         scenario_type,
         ipAddress
@@ -53,13 +137,13 @@ export async function sessionRoutes(app: FastifyInstance) {
   }
 
   // Create a new session with trial tracking
-  app.post<{ Body: z.infer<typeof CreateSessionSchema> }>(
+  app.post(
     "/create",
     async (request, reply) => handleCreateSession(request, reply),
   );
 
   // PRD-compatible route
-  app.post<{ Body: z.infer<typeof CreateSessionSchema> }>(
+  app.post(
     "/api/sessions/create",
     async (request, reply) => handleCreateSession(request, reply),
   );

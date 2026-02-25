@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import Stripe from "stripe";
 import { z } from "zod";
+import { requireAuth, requireOrgMembership } from "../lib/auth.js";
+import { sendValidationError } from "../lib/http-errors.js";
 import { createServiceClient } from "../lib/supabase.js";
 
 let _stripe: Stripe | null = null;
@@ -25,7 +27,7 @@ const PLANS = {
   growth: {
     name: "Growth",
     price: 59900, // $599.00 in cents
-    priceId: process.env.STRIPE_GROWTH_PRICE_ID!,
+    priceId: process.env.STRIPE_GROWTH_PRICE_ID || process.env.STRIPE_GROWTH_PRICE || "",
     maxReps: 15,
     sessionsPerRep: 15,
     totalSessions: 225,
@@ -74,8 +76,25 @@ export async function billingRoutes(app: FastifyInstance) {
 
   // Create checkout session for new subscription
   app.post("/api/billing/checkout", async (request, reply) => {
-    const body = CheckoutSchema.parse(request.body);
+    const auth = await requireAuth(request, reply);
+    if (!auth) return;
+
+    const parsed = CheckoutSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error);
+    }
+
+    const body = parsed.data;
     const plan = PLANS[body.plan];
+    if (!plan.priceId) {
+      return reply.status(500).send({
+        code: "BILLING_CONFIG_ERROR",
+        message: `Missing Stripe price configuration for plan: ${body.plan}`,
+      });
+    }
+
+    const membership = await requireOrgMembership(reply, body.org_id, auth.userId);
+    if (!membership) return;
 
     // Get or create Stripe customer
     const { data: org } = await supabase
@@ -125,7 +144,17 @@ export async function billingRoutes(app: FastifyInstance) {
 
   // Create customer portal session
   app.post("/api/billing/portal", async (request, reply) => {
-    const body = PortalSchema.parse(request.body);
+    const auth = await requireAuth(request, reply);
+    if (!auth) return;
+
+    const parsed = PortalSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error);
+    }
+
+    const body = parsed.data;
+    const membership = await requireOrgMembership(reply, body.org_id, auth.userId);
+    if (!membership) return;
 
     const { data: org } = await supabase
       .from("organizations")
@@ -149,7 +178,17 @@ export async function billingRoutes(app: FastifyInstance) {
 
   // Check usage against plan limits
   app.get("/api/billing/usage", async (request, reply) => {
-    const query = UsageCheckSchema.parse(request.query);
+    const auth = await requireAuth(request, reply);
+    if (!auth) return;
+
+    const parsed = UsageCheckSchema.safeParse(request.query);
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error);
+    }
+
+    const query = parsed.data;
+    const membership = await requireOrgMembership(reply, query.org_id, auth.userId);
+    if (!membership) return;
 
     const { data: org } = await supabase
       .from("organizations")

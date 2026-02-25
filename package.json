@@ -5,7 +5,9 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "env:contract": "node scripts/generate-env-contract.mjs",
+    "staging:smoke": "node scripts/staging-smoke-check.mjs"
   },
   "devDependencies": {
     "turbo": "^2"

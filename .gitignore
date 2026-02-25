@@ -7,3 +7,4 @@ dist/
 .env.*.local
 *.tsbuildinfo
 .worktrees/
+.DS_Store

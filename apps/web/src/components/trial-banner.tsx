@@ -2,11 +2,13 @@
 
 import { useTrialStatus } from "@/hooks/use-trial-status";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export function TrialBanner() {
   const { isTrialActive, daysRemaining, sessionsRemaining, isLoading, orgId } =
     useTrialStatus();
   const router = useRouter();
+  const supabase = createClient();
 
   if (isLoading || !isTrialActive) return null;
 
@@ -29,10 +31,16 @@ export function TrialBanner() {
   const handleUpgradeClick = async () => {
     if (orgId) {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
         await fetch(`${apiUrl}/track-upgrade-click`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(session?.access_token
+              ? { Authorization: `Bearer ${session.access_token}` }
+              : {}),
+          },
           body: JSON.stringify({
             org_id: orgId,
             source: "trial_banner",

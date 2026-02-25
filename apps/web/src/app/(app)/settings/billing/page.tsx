@@ -2,10 +2,12 @@
 
 import { useTrialStatus } from "@/hooks/use-trial-status";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function BillingSettingsPage() {
   const { isTrialActive, daysRemaining, sessionsRemaining, isLoading, orgId } =
     useTrialStatus();
+  const supabase = createClient();
 
   const handleUpgradeClick = async () => {
     if (!orgId) {
@@ -14,10 +16,16 @@ export default function BillingSettingsPage() {
     }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
       await fetch(`${apiUrl}/track-upgrade-click`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
         body: JSON.stringify({
           org_id: orgId,
           source: "billing_page",
@@ -37,10 +45,16 @@ export default function BillingSettingsPage() {
     }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
       const res = await fetch(`${apiUrl}/api/billing/portal`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
         body: JSON.stringify({
           org_id: orgId,
           return_url: window.location.href,

@@ -8,7 +8,12 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "echo 'no linter configured yet'",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts",
+    "test:staging": "node scripts/validate-staging-contract.mjs",
+    "test:stripe": "node scripts/validate-stripe-webhooks.mjs",
+    "seed:staging": "node scripts/seed-staging-fixtures.mjs",
+    "cleanup:staging": "node scripts/cleanup-staging-fixtures.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.29",

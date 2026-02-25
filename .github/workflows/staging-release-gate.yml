@@ -1,0 +1,128 @@
+name: Staging Release Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  staging-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    env:
+      STAGING_WEB_URL: ${{ secrets.STAGING_WEB_URL }}
+      STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+      STAGING_AUTH_TOKEN: ${{ secrets.STAGING_AUTH_TOKEN }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      STAGING_STRIPE_CUSTOMER_ID: ${{ secrets.STAGING_STRIPE_CUSTOMER_ID }}
+      E2E_BASE_URL: ${{ secrets.STAGING_WEB_URL }}
+      E2E_LOGIN_EMAIL: ${{ secrets.E2E_LOGIN_EMAIL }}
+      E2E_LOGIN_PASSWORD: ${{ secrets.E2E_LOGIN_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Static typecheck
+        id: typecheck
+        continue-on-error: true
+        run: pnpm typecheck
+
+      - name: Static build
+        id: build
+        continue-on-error: true
+        run: pnpm build
+
+      - name: Static lint
+        id: lint
+        continue-on-error: true
+        run: pnpm lint
+
+      - name: Staging smoke checks
+        id: smoke
+        continue-on-error: true
+        run: pnpm staging:smoke
+
+      - name: API contract checks
+        id: api_contract
+        continue-on-error: true
+        run: pnpm --filter @maxima/api test:staging
+
+      - name: Stripe webhook checks
+        id: stripe
+        continue-on-error: true
+        run: pnpm --filter @maxima/api test:stripe
+
+      - name: Install Playwright browsers
+        id: playwright_install
+        continue-on-error: true
+        run: pnpm --filter @maxima/web exec playwright install --with-deps chromium
+
+      - name: Web E2E checks
+        id: web_e2e
+        continue-on-error: true
+        run: pnpm --filter @maxima/web test:e2e
+
+      - name: Build release report
+        id: release_report
+        run: |
+          node -e '
+          const fs = require("fs");
+          const statuses = {
+            typecheck: process.env.TYPECHECK,
+            build: process.env.BUILD,
+            lint: process.env.LINT,
+            smoke: process.env.SMOKE,
+            api_contract: process.env.API_CONTRACT,
+            stripe: process.env.STRIPE,
+            playwright_install: process.env.PLAYWRIGHT_INSTALL,
+            web_e2e: process.env.WEB_E2E
+          };
+          const blockers = Object.entries(statuses)
+            .filter(([, v]) => v !== "success")
+            .map(([k, v]) => ({ check: k, status: v }));
+          const report = {
+            sha: process.env.GITHUB_SHA,
+            generatedAt: new Date().toISOString(),
+            passed: blockers.length === 0,
+            statuses,
+            blockers
+          };
+          fs.writeFileSync("release-report.json", JSON.stringify(report, null, 2));
+          if (blockers.length > 0) {
+            console.error("Release gate failed:", blockers);
+            process.exit(1);
+          }
+          '
+        env:
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          API_CONTRACT: ${{ steps.api_contract.outcome }}
+          STRIPE: ${{ steps.stripe.outcome }}
+          PLAYWRIGHT_INSTALL: ${{ steps.playwright_install.outcome }}
+          WEB_E2E: ${{ steps.web_e2e.outcome }}
+
+      - name: Upload release report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-report
+          path: release-report.json

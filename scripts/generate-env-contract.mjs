@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+
+import fs from "node:fs";
+import path from "node:path";
+
+const contract = {
+  generatedAt: new Date().toISOString(),
+  apps: {
+    api: [
+      "PORT",
+      "WEB_ORIGIN",
+      "SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "OPENAI_API_KEY",
+      "VALKEY_URL",
+      "REDIS_URL",
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "STRIPE_STARTER_PRICE_ID",
+      "STRIPE_GROWTH_PRICE_ID",
+      "STRIPE_SCALE_PRICE_ID",
+      "STRIPE_ENTERPRISE_PRICE_ID",
+      "SENTRY_DSN",
+      "ELEVENLABS_API_KEY",
+      "ELEVENLABS_AGENT_ID",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+    ],
+    web: [
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "NEXT_PUBLIC_API_URL",
+      "NEXT_PUBLIC_VOICE_URL",
+      "NEXT_PUBLIC_SENTRY_DSN",
+      "NEXT_PUBLIC_APP_URL",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+    ],
+    voice: [
+      "PORT",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "JWT_SECRET",
+      "OPENAI_API_KEY",
+      "DEEPGRAM_API_KEY",
+      "ELEVENLABS_API_KEY",
+      "ELEVENLABS_VOICE_ID",
+    ],
+  },
+  shared: [
+    "NODE_ENV",
+    "CI",
+  ],
+};
+
+const root = process.cwd();
+const outPath = path.join(root, "docs", "env-contract.json");
+fs.mkdirSync(path.dirname(outPath), { recursive: true });
+fs.writeFileSync(outPath, `${JSON.stringify(contract, null, 2)}\n`, "utf8");
+
+console.log(`Wrote env contract to ${outPath}`);

@@ -31,10 +31,16 @@ export default function PricingPage() {
     if (!orgId) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
       await fetch(`${apiUrl}/track-upgrade-click`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
         body: JSON.stringify({
           org_id: orgId,
           source: "pricing_page",
@@ -59,10 +65,16 @@ export default function PricingPage() {
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
     const origin = window.location.origin;
+    const { data: { session } } = await supabase.auth.getSession();
 
     const res = await fetch(`${apiUrl}/api/billing/checkout`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {}),
+      },
       body: JSON.stringify({
         org_id: orgId,
         plan,

@@ -1,9 +1,11 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { requireAuth, requireOrgMembership } from "../lib/auth.js";
+import { sendValidationError } from "../lib/http-errors.js";
 import { createServiceClient } from "../lib/supabase.js";
 
 const CheckTrialSchema = z.object({
-  user_id: z.string().uuid(),
+  user_id: z.string().uuid().optional(),
   ip_address: z.string().optional(),
 });
 
@@ -25,11 +27,22 @@ const TrackUpgradeClickSchema = z.object({
 
 export async function trialRoutes(app: FastifyInstance) {
   // Track upgrade button clicks for analytics
-  app.post<{ Body: z.infer<typeof TrackUpgradeClickSchema> }>(
+  app.post(
     "/track-upgrade-click",
     async (request, reply) => {
-      const { org_id, source, plan } = TrackUpgradeClickSchema.parse(request.body);
+      const auth = await requireAuth(request, reply);
+      if (!auth) return;
+
+      const parsed = TrackUpgradeClickSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return sendValidationError(reply, parsed.error);
+      }
+
+      const { org_id, source, plan } = parsed.data;
       const supabase = createServiceClient();
+
+      const membership = await requireOrgMembership(reply, org_id, auth.userId);
+      if (!membership) return;
 
       await supabase.from("trial_events").insert({
         organization_id: org_id,
@@ -46,11 +59,20 @@ export async function trialRoutes(app: FastifyInstance) {
   );
 
   async function handleCheckTrial(
-    request: { body: z.infer<typeof CheckTrialSchema> },
-    reply: { send: (body: CheckTrialResponse) => void },
+    request: FastifyRequest,
+    reply: FastifyReply,
   ) {
-    const { user_id, ip_address } = CheckTrialSchema.parse(request.body);
-    const requestIp = (request as { ip?: string }).ip;
+    const auth = await requireAuth(request, reply);
+    if (!auth) return;
+
+    const parsed = CheckTrialSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error);
+    }
+
+    const { ip_address } = parsed.data;
+    const user_id = auth.userId;
+    const requestIp = request.ip;
     const ipAddress = ip_address ?? requestIp ?? "0.0.0.0";
 
     const supabase = createServiceClient();
@@ -64,9 +86,9 @@ export async function trialRoutes(app: FastifyInstance) {
 
     if (orgUserError || !orgUsers || orgUsers.length === 0) {
       return reply.send({
-        allowed: false,
-        reason: "no_organization",
-      } satisfies CheckTrialResponse);
+          allowed: false,
+          reason: "no_organization",
+        } satisfies CheckTrialResponse);
     }
 
     const orgUser = orgUsers[0];
@@ -173,14 +195,12 @@ export async function trialRoutes(app: FastifyInstance) {
     } satisfies CheckTrialResponse);
   }
 
-  // Check if user can create a session based on trial status
-  app.post<{ Body: z.infer<typeof CheckTrialSchema> }>(
+  app.post(
     "/check-trial",
     async (request, reply) => handleCheckTrial(request, reply),
   );
 
-  // PRD-compatible route
-  app.post<{ Body: z.infer<typeof CheckTrialSchema> }>(
+  app.post(
     "/api/sessions/check-trial",
     async (request, reply) => handleCheckTrial(request, reply),
   );
