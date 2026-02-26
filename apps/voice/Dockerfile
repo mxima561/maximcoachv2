@@ -27,7 +27,6 @@ RUN corepack enable && corepack prepare pnpm@10.29.2 --activate
 WORKDIR /app
 
 ENV NODE_ENV=production
-
 # Copy workspace root (include tsconfig.base.json for tsx resolution)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 
@@ -46,4 +45,4 @@ RUN npm install -g tsx
 
 EXPOSE 3002
 
-CMD ["node", "--import", "tsx", "apps/voice/dist/index.js"]
+CMD ["tsx", "apps/voice/dist/index.js"]

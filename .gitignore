@@ -8,3 +8,4 @@ dist/
 *.tsbuildinfo
 .worktrees/
 .DS_Store
+.vercel
