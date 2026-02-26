@@ -12,6 +12,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.js
 COPY packages/shared/package.json packages/shared/tsconfig.json ./packages/shared/
 COPY packages/shared/src ./packages/shared/src
 
+COPY packages/auth/package.json packages/auth/tsconfig.json ./packages/auth/
+COPY packages/auth/src ./packages/auth/src
+
 COPY apps/api/package.json apps/api/tsconfig.json ./apps/api/
 COPY apps/api/src ./apps/api/src
 
@@ -34,6 +37,10 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Copy shared package (compiled)
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+
+# Copy auth package (compiled)
+COPY --from=builder /app/packages/auth/package.json ./packages/auth/
+COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
 
 # Copy api service (compiled)
 COPY --from=builder /app/apps/api/package.json ./apps/api/
