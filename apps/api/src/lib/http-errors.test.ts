@@ -1,5 +1,4 @@
-import test from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { sendForbidden, sendUnauthorized, sendValidationError } from "./http-errors.js";
 
@@ -27,28 +26,30 @@ function createMockReply() {
   return reply;
 }
 
-test("sendValidationError returns 400 with normalized payload", () => {
-  const schema = z.object({ id: z.string().uuid() });
-  const result = schema.safeParse({ id: "not-a-uuid" });
-  assert.equal(result.success, false);
-  if (result.success) return;
+describe("http-errors", () => {
+  it("sendValidationError returns 400 with normalized payload", () => {
+    const schema = z.object({ id: z.string().uuid() });
+    const result = schema.safeParse({ id: "not-a-uuid" });
+    expect(result.success).toBe(false);
+    if (result.success) return;
 
-  const reply = createMockReply();
-  sendValidationError(reply as any, result.error);
+    const reply = createMockReply();
+    sendValidationError(reply as any, result.error);
 
-  assert.equal(reply.statusCode, 400);
-  assert.equal((reply.payload as any).code, "VALIDATION_ERROR");
-  assert.equal(Array.isArray((reply.payload as any).fieldErrors), true);
-});
+    expect(reply.statusCode).toBe(400);
+    expect((reply.payload as any).code).toBe("VALIDATION_ERROR");
+    expect(Array.isArray((reply.payload as any).fieldErrors)).toBe(true);
+  });
 
-test("sendUnauthorized returns 401", () => {
-  const reply = createMockReply();
-  sendUnauthorized(reply as any);
-  assert.equal(reply.statusCode, 401);
-});
+  it("sendUnauthorized returns 401", () => {
+    const reply = createMockReply();
+    sendUnauthorized(reply as any);
+    expect(reply.statusCode).toBe(401);
+  });
 
-test("sendForbidden returns 403", () => {
-  const reply = createMockReply();
-  sendForbidden(reply as any);
-  assert.equal(reply.statusCode, 403);
+  it("sendForbidden returns 403", () => {
+    const reply = createMockReply();
+    sendForbidden(reply as any);
+    expect(reply.statusCode).toBe(403);
+  });
 });

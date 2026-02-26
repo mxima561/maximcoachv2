@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { verifyToken, AuthError } from "@maxima/auth";
 import { createServiceClient } from "./supabase.js";
 import { sendForbidden, sendUnauthorized } from "./http-errors.js";
 
@@ -23,18 +24,17 @@ export async function requireAuth(
     return null;
   }
 
-  const supabase = createServiceClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token);
-
-  if (error || !user) {
-    sendUnauthorized(reply, "Invalid or expired token");
+  try {
+    const claims = await verifyToken(token);
+    return { userId: claims.userId, email: claims.email };
+  } catch (err) {
+    if (err instanceof AuthError) {
+      sendUnauthorized(reply, err.message);
+    } else {
+      sendUnauthorized(reply, "Invalid or expired token");
+    }
     return null;
   }
-
-  return { userId: user.id, email: user.email ?? null };
 }
 
 export async function requireOrgMembership(

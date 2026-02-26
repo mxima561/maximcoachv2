@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { WebSocketServer, WebSocket } from "ws";
-import { jwtVerify, createRemoteJWKSet } from "jose";
+import { verifyToken as verifyAuthToken, extractToken as extractAuthToken } from "@maxima/auth";
 import { VoiceSession } from "./session.js";
 import { VoicePipeline } from "./pipeline.js";
 import type {
@@ -11,8 +11,6 @@ import type {
 
 const PORT = Number(process.env.PORT) || 3002;
 const PING_INTERVAL_MS = 30_000;
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET ?? process.env.JWT_SECRET ?? "";
 
 // Active sessions keyed by WebSocket
 const sessions = new Map<WebSocket, VoiceSession>();
@@ -28,62 +26,27 @@ const missingKeys = requiredKeys.filter(([, v]) => !v).map(([k]) => k);
 if (missingKeys.length > 0) {
   console.warn(`[voice] WARNING: Missing API keys: ${missingKeys.join(", ")}. Pipeline calls will fail.`);
 }
-if (!SUPABASE_JWT_SECRET && !SUPABASE_URL) {
-  console.warn("[voice] WARNING: No SUPABASE_JWT_SECRET or NEXT_PUBLIC_SUPABASE_URL — JWT auth will reject all tokens.");
-}
 
 const wss = new WebSocketServer({ port: PORT });
 console.log(`Voice WebSocket server listening on port ${PORT}`);
 
-/** Extract JWT from query ?token= or Authorization header */
-function extractToken(
-  url: string | undefined,
-  headers: Record<string, string | string[] | undefined>
-): string | null {
-  if (url) {
-    const params = new URL(url, "http://localhost").searchParams;
-    const token = params.get("token");
-    if (token) return token;
-  }
-  const auth = headers.authorization;
-  if (typeof auth === "string" && auth.startsWith("Bearer ")) {
-    return auth.slice(7);
-  }
-  return null;
-}
-
-/** Verify Supabase JWT and return user_id */
-async function verifyToken(token: string): Promise<string | null> {
-  try {
-    if (SUPABASE_JWT_SECRET) {
-      const secret = new TextEncoder().encode(SUPABASE_JWT_SECRET);
-      const { payload } = await jwtVerify(token, secret);
-      return (payload.sub as string) ?? null;
-    }
-    if (SUPABASE_URL) {
-      const jwks = createRemoteJWKSet(
-        new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`)
-      );
-      const { payload } = await jwtVerify(token, jwks);
-      return (payload.sub as string) ?? null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 wss.on("connection", async (ws, req) => {
   const clientIp = req.socket.remoteAddress;
-  const token = extractToken(req.url, req.headers as Record<string, string | string[] | undefined>);
+  const token = extractAuthToken({
+    url: req.url,
+    headers: req.headers as Record<string, string | string[] | undefined>,
+  });
 
   if (!token) {
     ws.close(4001, "Missing authentication token");
     return;
   }
 
-  const userId = await verifyToken(token);
-  if (!userId) {
+  let userId: string;
+  try {
+    const claims = await verifyAuthToken(token);
+    userId = claims.userId;
+  } catch {
     ws.close(4003, "Invalid authentication token");
     return;
   }

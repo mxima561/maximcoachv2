@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaximaCoach</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>MaximaCoach</h1>
+      <div class="status-row">
+        <span id="status-dot" class="status-dot disconnected"></span>
+        <span id="status">disconnected</span>
+        <span id="duration" class="duration">0:00</span>
+      </div>
+    </header>
+
+    <div class="controls">
+      <button id="start-btn" class="btn btn-start">Start Coaching</button>
+      <button id="stop-btn" class="btn btn-stop" style="display:none">End Session</button>
+    </div>
+
+    <section class="sentiment-section">
+      <div class="indicator-row">
+        <span class="indicator-label">Sentiment</span>
+        <span id="sentiment-label" class="indicator-value">neutral</span>
+      </div>
+      <div class="bar-track">
+        <div id="sentiment-bar" class="bar-fill sentiment"></div>
+      </div>
+    </section>
+
+    <section class="ratio-section">
+      <div class="indicator-row">
+        <span class="indicator-label">Talk Ratio</span>
+        <span id="talk-ratio-label" class="indicator-value">50% rep</span>
+      </div>
+      <div class="bar-track">
+        <div id="talk-ratio-bar" class="bar-fill ratio" style="width:50%"></div>
+      </div>
+    </section>
+
+    <section class="suggestions-section">
+      <h2>Suggestions</h2>
+      <div id="suggestions" class="suggestions"></div>
+    </section>
+
+    <section class="transcript-section">
+      <h2>Transcript</h2>
+      <div id="transcript" class="transcript"></div>
+    </section>
+  </div>
+
+  <script src="dist/popup.js"></script>
+</body>
+</html>

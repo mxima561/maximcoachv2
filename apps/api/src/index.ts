@@ -14,6 +14,7 @@ import { trialRoutes } from "./routes/trial.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
 import { startWorkers, getQueueHealth } from "./lib/queues.js";
+import { registerRateLimit } from "./lib/rate-limit.js";
 
 // Initialize Sentry
 Sentry.init({
@@ -71,6 +72,8 @@ await app.register(cors, {
   methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   credentials: true,
 });
+
+await registerRateLimit(app);
 
 // Sentry request context tracking
 app.addHook("onRequest", async (request, reply) => {

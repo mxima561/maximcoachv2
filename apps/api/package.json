@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "lint": "echo 'no linter configured yet'",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "vitest run",
     "test:staging": "node scripts/validate-staging-contract.mjs",
     "test:stripe": "node scripts/validate-stripe-webhooks.mjs",
     "seed:staging": "node scripts/seed-staging-fixtures.mjs",
@@ -18,6 +18,8 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.29",
     "@fastify/cors": "^11.2.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@maxima/auth": "workspace:*",
     "@maxima/shared": "workspace:*",
     "@sentry/node": "^10.38.0",
     "@sentry/profiling-node": "^10.38.0",

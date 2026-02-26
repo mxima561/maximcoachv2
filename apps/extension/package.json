@@ -1,0 +1,16 @@
+{
+  "name": "@maxima/extension",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "esbuild src/background.ts src/popup.ts src/content.ts --bundle --outdir=dist --sourcemap --watch",
+    "build": "esbuild src/background.ts src/popup.ts src/content.ts --bundle --outdir=dist --minify",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.306",
+    "esbuild": "^0.25.3",
+    "typescript": "^5.8"
+  }
+}

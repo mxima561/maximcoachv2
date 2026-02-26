@@ -1,0 +1,75 @@
+services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "3001:3001"
+    env_file: .env
+    environment:
+      - PORT=3001
+      - VALKEY_URL=redis://valkey:6379
+      - NODE_ENV=production
+    depends_on:
+      valkey:
+        condition: service_healthy
+
+  voice:
+    build:
+      context: .
+      dockerfile: apps/voice/Dockerfile
+    ports:
+      - "3002:3002"
+    env_file: .env
+    environment:
+      - PORT=3002
+      - NODE_ENV=production
+    depends_on:
+      - api
+
+  coach:
+    build:
+      context: .
+      dockerfile: apps/coach/Dockerfile
+    ports:
+      - "3003:3003"
+    env_file: .env
+    environment:
+      - PORT=3003
+      - NODE_ENV=production
+    depends_on:
+      - api
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_VOICE_URL: ws://localhost:3002
+        NEXT_PUBLIC_COACH_URL: ws://localhost:3003
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+    ports:
+      - "3000:3000"
+    environment:
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+    depends_on:
+      - api
+
+volumes:
+  valkey_data:

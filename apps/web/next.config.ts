@@ -2,8 +2,8 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   transpilePackages: ["@maxima/shared"],
-  // Disable source maps in production for security
   productionBrowserSourceMaps: false,
 };
 

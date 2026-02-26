@@ -1,12 +1,10 @@
-
-import { streamText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { generateLLMResponse } from "@maxima/voice-core";
+import type { SentenceHandler } from "@maxima/voice-core";
 import type { VoiceSession, ConversationTurn } from "./session.js";
 
-const MODEL_ID = "gpt-4o";
+export type { SentenceHandler };
+
 const MAX_HISTORY_TURNS = 20;
-const MAX_TOKENS = 1024;
-const MAX_RETRIES = 2;
 
 export interface PersonaConfig {
   name: string;
@@ -36,7 +34,7 @@ export interface DifficultyParams {
 function buildSystemPrompt(
   persona: PersonaConfig,
   scenario: ScenarioConfig,
-  difficulty: DifficultyParams
+  difficulty: DifficultyParams,
 ): string {
   return `You are ${persona.name}, ${persona.title} at ${persona.company}.
 
@@ -70,15 +68,14 @@ RULES:
 }
 
 function historyToMessages(
-  history: ConversationTurn[]
-): Array<{ role: "user" | "assistant"; content: string }> {
+  history: ConversationTurn[],
+): Array<{ role: "user" | "assistant"; content: string; timestamp?: number }> {
   return history.slice(-MAX_HISTORY_TURNS).map((turn) => ({
     role: turn.role,
     content: turn.content,
+    timestamp: turn.timestamp,
   }));
 }
-
-export type SentenceHandler = (sentence: string) => void;
 
 export async function generateResponse(
   session: VoiceSession,
@@ -86,44 +83,21 @@ export async function generateResponse(
   persona: PersonaConfig,
   scenario: ScenarioConfig,
   difficulty: DifficultyParams,
-  onSentence: SentenceHandler
+  onSentence: SentenceHandler,
 ): Promise<string> {
   session.addTurn("user", userMessage);
 
   const systemPrompt = buildSystemPrompt(persona, scenario, difficulty);
-  const messages = historyToMessages(session.getRecentHistory(MAX_HISTORY_TURNS));
+  const messages = historyToMessages(
+    session.getRecentHistory(MAX_HISTORY_TURNS),
+  );
 
-  const { textStream } = streamText({
-    model: openai(MODEL_ID),
-    system: systemPrompt,
+  const fullResponse = await generateLLMResponse(
+    systemPrompt,
     messages,
-    maxOutputTokens: MAX_TOKENS,
-    maxRetries: MAX_RETRIES,
-  });
-
-  let fullResponse = "";
-  let sentenceBuffer = "";
-
-  for await (const chunk of textStream) {
-    fullResponse += chunk;
-    sentenceBuffer += chunk;
-
-    // Extract all complete sentences from the buffer
-    let sentenceEnd: number;
-    while ((sentenceEnd = sentenceBuffer.search(/[.!?]\s/)) !== -1) {
-      const sentence = sentenceBuffer.slice(0, sentenceEnd + 1).trim();
-      sentenceBuffer = sentenceBuffer.slice(sentenceEnd + 2);
-      if (sentence) {
-        onSentence(sentence);
-      }
-    }
-  }
-
-  // Flush remaining buffer
-  const remaining = sentenceBuffer.trim();
-  if (remaining) {
-    onSentence(remaining);
-  }
+    onSentence,
+    { model: "gpt-4o", maxTokens: 1024, maxRetries: 2 },
+  );
 
   session.addTurn("assistant", fullResponse);
   return fullResponse;

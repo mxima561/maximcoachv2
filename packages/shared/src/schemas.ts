@@ -3,6 +3,8 @@ import {
   ROLES,
   SCENARIO_TYPES,
   SESSION_STATUSES,
+  SESSION_TYPES,
+  COACHING_SENTIMENTS,
   CRM_SOURCES,
   PLANS,
 } from "./constants";
@@ -71,6 +73,7 @@ export const SessionSchema = z.strictObject({
   org_id: z.uuid(),
   persona_id: z.uuid().nullable(),
   scenario_type: z.enum(SCENARIO_TYPES),
+  session_type: z.enum(SESSION_TYPES),
   status: z.enum(SESSION_STATUSES),
   started_at: z.string().datetime(),
   ended_at: z.string().datetime().nullable(),
@@ -161,3 +164,31 @@ export const IntegrationSchema = z.strictObject({
 });
 
 export type Integration = z.infer<typeof IntegrationSchema>;
+
+// ── Sentiment Entry ──────────────────────────────────────────
+
+export const SentimentEntrySchema = z.strictObject({
+  timestamp: z.string(),
+  score: z.number(),
+  label: z.enum(COACHING_SENTIMENTS),
+});
+
+export type SentimentEntry = z.infer<typeof SentimentEntrySchema>;
+
+// ── Coaching Insight ─────────────────────────────────────────
+
+export const CoachingInsightSchema = z.strictObject({
+  id: z.uuid(),
+  session_id: z.uuid(),
+  org_id: z.uuid(),
+  sentiment_timeline: z.array(SentimentEntrySchema).default([]),
+  talk_ratio: z.number().min(0).max(1).nullable(),
+  topics_covered: z.array(z.string()).default([]),
+  topics_missed: z.array(z.string()).default([]),
+  suggestions_surfaced: z.number().int().default(0),
+  battle_cards_triggered: z.number().int().default(0),
+  overall_sentiment: z.enum(COACHING_SENTIMENTS).nullable(),
+  created_at: z.string().datetime(),
+});
+
+export type CoachingInsight = z.infer<typeof CoachingInsightSchema>;

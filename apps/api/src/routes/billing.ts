@@ -2,8 +2,10 @@ import type { FastifyInstance } from "fastify";
 import Stripe from "stripe";
 import { z } from "zod";
 import { requireAuth, requireOrgMembership } from "../lib/auth.js";
-import { sendValidationError } from "../lib/http-errors.js";
+import { sendValidationError, sendForbidden } from "../lib/http-errors.js";
 import { createServiceClient } from "../lib/supabase.js";
+import { canAccess } from "@maxima/shared";
+import type { Plan, Feature } from "@maxima/shared";
 
 let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
@@ -16,6 +18,14 @@ function getStripe(): Stripe {
 }
 
 const PLANS = {
+  solo: {
+    name: "Solo",
+    price: 2900, // $29.00 in cents
+    priceId: process.env.STRIPE_SOLO_PRICE_ID || "",
+    maxReps: 1,
+    sessionsPerRep: -1, // unlimited
+    totalSessions: -1, // unlimited
+  },
   starter: {
     name: "Starter",
     price: 29900, // $299.00 in cents
@@ -52,7 +62,7 @@ const PLANS = {
 
 const CheckoutSchema = z.object({
   org_id: z.string().uuid(),
-  plan: z.enum(["starter", "growth", "scale", "enterprise"]),
+  plan: z.enum(["solo", "starter", "growth", "scale", "enterprise"]),
   success_url: z.string().url(),
   cancel_url: z.string().url(),
 });
@@ -235,6 +245,39 @@ export async function billingRoutes(app: FastifyInstance) {
       sessions_per_rep: planConfig?.sessionsPerRep ?? 10,
       is_within_limit: limit === -1 || sessionCount < limit,
     };
+  });
+
+  // Check feature access for a given org
+  const FeatureCheckSchema = z.object({
+    org_id: z.string().uuid(),
+    feature: z.string(),
+  });
+
+  app.get("/api/billing/feature-check", async (request, reply) => {
+    const auth = await requireAuth(request, reply);
+    if (!auth) return;
+
+    const parsed = FeatureCheckSchema.safeParse(request.query);
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error);
+    }
+
+    const { org_id, feature } = parsed.data;
+    const membership = await requireOrgMembership(reply, org_id, auth.userId);
+    if (!membership) return;
+
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("plan")
+      .eq("id", org_id)
+      .single();
+
+    if (!org) {
+      return reply.status(404).send({ error: "Organization not found" });
+    }
+
+    const allowed = canAccess(org.plan as Plan, feature as Feature);
+    return { feature, plan: org.plan, allowed };
   });
 
   // Stripe webhook handler

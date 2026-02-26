@@ -1,0 +1,31 @@
+{
+  "name": "@maxima/coach",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "echo 'no linter configured yet'",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^3.0.29",
+    "@deepgram/sdk": "^4.11.3",
+    "@maxima/auth": "workspace:*",
+    "@maxima/shared": "workspace:*",
+    "@maxima/voice-core": "workspace:*",
+    "@supabase/supabase-js": "^2.95.3",
+    "ai": "^6.0.86",
+    "dotenv": "^17.3.1",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/ws": "^8",
+    "tsx": "^4",
+    "typescript": "^5.8"
+  }
+}

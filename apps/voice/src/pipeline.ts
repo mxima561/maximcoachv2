@@ -40,8 +40,42 @@ export class VoicePipeline {
     this.tts = new ElevenLabsTTS(session, voiceId);
 
     // STT → on final transcript, process through LLM → TTS
-    this.stt = new DeepgramSTT(session, (result: TranscriptResult) => {
+    this.stt = new DeepgramSTT(session.sessionId, (result: TranscriptResult) => {
       this.handleFinalTranscript(result);
+    });
+
+    // Forward STT events to the WebSocket client
+    this.stt.on("transcript", (data) => {
+      const result = data as TranscriptResult;
+      session.sendEvent("transcript", {
+        text: result.transcript,
+        is_final: result.isFinal,
+        confidence: result.confidence,
+      });
+    });
+
+    this.stt.on("speech_started", () => {
+      session.sendEvent("speech_started", {});
+    });
+
+    this.stt.on("error", (err) => {
+      session.sendEvent("error", {
+        message: err && typeof err === "object" && "message" in err
+          ? (err as { message: string }).message
+          : "STT error",
+      });
+    });
+
+    this.stt.on("degraded", () => {
+      session.sendEvent("stt_degraded", {
+        message: "Speech-to-text connection lost. Coaching paused.",
+      });
+    });
+
+    this.stt.on("reconnected", () => {
+      session.sendEvent("stt_reconnected", {
+        message: "Speech-to-text reconnected.",
+      });
     });
   }
 
@@ -169,6 +203,6 @@ export class VoicePipeline {
         `cost=$${costs.cost_usd} tokens=${costs.tokens_used} ` +
         `stt=${costs.audio_seconds_stt}s tts=${costs.audio_seconds_tts}s`
     );
-    this.session.sendEvent("session_costs", costs);
+    this.session.sendEvent("session_costs", { ...costs });
   }
 }
