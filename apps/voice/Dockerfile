@@ -28,20 +28,22 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy workspace root
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copy workspace root (include tsconfig.base.json for tsx resolution)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 
-# Copy shared package (compiled)
-COPY --from=builder /app/packages/shared/package.json ./packages/shared/
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+# Copy shared package (source — tsx resolves .ts imports at runtime)
+COPY --from=builder /app/packages/shared/package.json /app/packages/shared/tsconfig.json ./packages/shared/
+COPY --from=builder /app/packages/shared/src ./packages/shared/src
 
-# Copy voice service (compiled)
+# Copy voice service (compiled JS)
 COPY --from=builder /app/apps/voice/package.json ./apps/voice/
 COPY --from=builder /app/apps/voice/dist ./apps/voice/dist
 
-# Install production deps only
+# Install production deps
 RUN pnpm install --frozen-lockfile --prod
+# tsx for runtime TS resolution of workspace packages
+RUN npm install -g tsx
 
 EXPOSE 3002
 
-CMD ["node", "apps/voice/dist/index.js"]
+CMD ["node", "--import", "tsx", "apps/voice/dist/index.js"]

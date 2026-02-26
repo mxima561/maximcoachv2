@@ -31,24 +31,26 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy workspace root
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copy workspace root (include tsconfig.base.json for tsx resolution)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 
-# Copy shared package (compiled)
-COPY --from=builder /app/packages/shared/package.json ./packages/shared/
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+# Copy shared package (source — tsx resolves .ts imports at runtime)
+COPY --from=builder /app/packages/shared/package.json /app/packages/shared/tsconfig.json ./packages/shared/
+COPY --from=builder /app/packages/shared/src ./packages/shared/src
 
-# Copy auth package (compiled)
-COPY --from=builder /app/packages/auth/package.json ./packages/auth/
-COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+# Copy auth package (source)
+COPY --from=builder /app/packages/auth/package.json /app/packages/auth/tsconfig.json ./packages/auth/
+COPY --from=builder /app/packages/auth/src ./packages/auth/src
 
-# Copy api service (compiled)
+# Copy api service (compiled JS)
 COPY --from=builder /app/apps/api/package.json ./apps/api/
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
-# Install production deps only
+# Install production deps
 RUN pnpm install --frozen-lockfile --prod
+# tsx for runtime TS resolution of workspace packages
+RUN npm install -g tsx
 
 EXPOSE 3001
 
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["node", "--import", "tsx", "apps/api/dist/index.js"]

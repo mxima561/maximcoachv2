@@ -34,28 +34,30 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy workspace root
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copy workspace root (include tsconfig.base.json for tsx resolution)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 
-# Copy shared package (compiled)
-COPY --from=builder /app/packages/shared/package.json ./packages/shared/
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+# Copy shared package (source — tsx resolves .ts imports at runtime)
+COPY --from=builder /app/packages/shared/package.json /app/packages/shared/tsconfig.json ./packages/shared/
+COPY --from=builder /app/packages/shared/src ./packages/shared/src
 
-# Copy auth package (compiled)
-COPY --from=builder /app/packages/auth/package.json ./packages/auth/
-COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+# Copy auth package (source)
+COPY --from=builder /app/packages/auth/package.json /app/packages/auth/tsconfig.json ./packages/auth/
+COPY --from=builder /app/packages/auth/src ./packages/auth/src
 
-# Copy voice-core package (compiled)
-COPY --from=builder /app/packages/voice-core/package.json ./packages/voice-core/
-COPY --from=builder /app/packages/voice-core/dist ./packages/voice-core/dist
+# Copy voice-core package (source)
+COPY --from=builder /app/packages/voice-core/package.json /app/packages/voice-core/tsconfig.json ./packages/voice-core/
+COPY --from=builder /app/packages/voice-core/src ./packages/voice-core/src
 
-# Copy coach service (compiled)
+# Copy coach service (compiled JS)
 COPY --from=builder /app/apps/coach/package.json ./apps/coach/
 COPY --from=builder /app/apps/coach/dist ./apps/coach/dist
 
-# Install production deps only
+# Install production deps
 RUN pnpm install --frozen-lockfile --prod
+# tsx for runtime TS resolution of workspace packages
+RUN npm install -g tsx
 
 EXPOSE 3003
 
-CMD ["node", "apps/coach/dist/index.js"]
+CMD ["node", "--import", "tsx", "apps/coach/dist/index.js"]
