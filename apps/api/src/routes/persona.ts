@@ -222,19 +222,35 @@ export async function personaRoutes(app: FastifyInstance) {
       prospect_profile,
     );
 
-    const { text } = await generateText({
-      model: openai("gpt-4-turbo"),
-      system:
-        "You are an expert sales training persona generator. Generate realistic buyer personas for role-play calls. Always respond with valid JSON matching the requested schema.",
-      prompt,
-      maxOutputTokens: 2048,
-    });
+    let text: string;
+    try {
+      const result = await generateText({
+        model: openai("gpt-4o"),
+        system:
+          "You are an expert sales training persona generator. Generate realistic buyer personas for role-play calls. Always respond with valid JSON matching the requested schema. Do NOT wrap the JSON in markdown code fences.",
+        prompt,
+        maxOutputTokens: 2048,
+      });
+      text = result.text;
+    } catch (err) {
+      request.log.error(err, "OpenAI generateText failed");
+      return reply.status(500).send({
+        code: "AI_ERROR",
+        message: "Failed to generate persona — AI service error",
+      });
+    }
 
     let parsedPersona: PersonaOutput;
     try {
-      const raw = JSON.parse(text);
+      // Strip markdown code fences if present
+      let cleaned = text.trim();
+      if (cleaned.startsWith("```")) {
+        cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+      }
+      const raw = JSON.parse(cleaned);
       parsedPersona = PersonaOutputSchema.parse(raw);
-    } catch {
+    } catch (parseErr) {
+      request.log.error({ text, error: parseErr }, "Persona JSON parse/validation failed");
       return reply.status(500).send({
         code: "PERSONA_INVALID",
         message: "Failed to generate valid persona",
