@@ -18,9 +18,15 @@ function extractUserId(request: FastifyRequest): string {
   // runs before route handlers so we need a lightweight extraction here
   const auth = request.headers.authorization;
   if (auth?.startsWith("Bearer ")) {
-    // Use the token as a fingerprint — unique per user session
     const token = auth.slice(7);
-    // Hash the token to a shorter key for Redis
+    try {
+      const payload = JSON.parse(
+        Buffer.from(token.split(".")[1], "base64").toString()
+      );
+      if (payload.sub) return `user:${payload.sub}`;
+    } catch {
+      // Fall through to IP-based key on decode failure
+    }
     return `user:${token.slice(-16)}`;
   }
   return `ip:${request.ip}`;

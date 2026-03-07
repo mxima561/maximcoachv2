@@ -1,284 +1,161 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ThumbsUp, Flame, Lightbulb, Play, Pause } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Play, Flame, HandMetal, Brain, Trophy, ThumbsUp } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/posthog";
+import {
+  FadeIn,
+  StaggerContainer,
+  StaggerItem,
+  ScaleOnHover,
+  motion,
+} from "@/components/motion";
 
-interface ClipEntry {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+const REACTION_ICONS: Record<string, typeof Flame> = {
+  fire: Flame,
+  clap: HandMetal,
+  mind_blown: Brain,
+  trophy: Trophy,
+  thumbs_up: ThumbsUp,
+};
+
+interface ClipItem {
   id: string;
-  session_id: string;
-  user_id: string;
+  title: string;
+  description: string;
+  ai_note: string | null;
+  storage_path: string;
   start_time: number;
   end_time: number;
-  storage_path: string;
-  coaching_note: string | null;
-  reactions: Record<string, number> | null;
   created_at: string;
-  users: { name: string } | null;
-  sessions: { scenario_type: string } | null;
-  scorecards: { overall_score: number }[] | null;
+  users: { name: string };
+  reaction_counts: Record<string, number>;
+  my_reactions: string[];
 }
-
-const REACTIONS = [
-  { key: "thumbs_up", icon: ThumbsUp, label: "Nice" },
-  { key: "fire", icon: Flame, label: "Fire" },
-  { key: "lightbulb", icon: Lightbulb, label: "Insight" },
-] as const;
-
-const PAGE_SIZE = 20;
 
 export default function FeedPage() {
   const supabase = createClient();
-  const [clips, setClips] = useState<ClipEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(0);
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [clips, setClips] = useState<ClipItem[]>([]);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id ?? null);
-    });
-  }, []);
-
-  const loadClips = useCallback(
-    async (pageNum: number) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: orgUser } = await supabase
-        .from("organization_users")
-        .select("organization_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!orgUser?.organization_id) return;
-
-      // Get all org user IDs
-      const { data: orgUsers } = await supabase
-        .from("organization_users")
-        .select("user_id")
-        .eq("organization_id", orgUser.organization_id);
-
-      if (!orgUsers?.length) {
-        setLoading(false);
-        return;
-      }
-
-      const userIds = orgUsers.map((u) => u.user_id as string);
-
-      const { data } = await supabase
-        .from("clips")
-        .select(
-          "*, users(name), sessions(scenario_type), scorecards:sessions(scorecards(overall_score))",
-        )
-        .in("user_id", userIds)
-        .order("created_at", { ascending: false })
-        .range(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE - 1);
-
-      if (data) {
-        if (pageNum === 0) {
-          setClips(data as unknown as ClipEntry[]);
-        } else {
-          setClips((prev) => [
-            ...prev,
-            ...(data as unknown as ClipEntry[]),
-          ]);
-        }
-        setHasMore(data.length === PAGE_SIZE);
-      }
-      setLoading(false);
-    },
-    [supabase],
-  );
-
-  useEffect(() => {
-    loadClips(0);
-  }, [loadClips]);
-
-  function loadMore() {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    loadClips(nextPage);
-  }
-
-  async function handleReaction(clipId: string, reactionKey: string) {
-    const clip = clips.find((c) => c.id === clipId);
-    if (!clip) return;
-
-    const currentReactions = clip.reactions ?? {};
-    const currentCount = currentReactions[reactionKey] ?? 0;
-
-    const updatedReactions = {
-      ...currentReactions,
-      [reactionKey]: currentCount + 1,
+  const getHeaders = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return {
+      Authorization: `Bearer ${session?.access_token}`,
+      "Content-Type": "application/json",
     };
+  }, [supabase]);
 
-    await supabase
-      .from("clips")
-      .update({ reactions: updatedReactions })
-      .eq("id", clipId);
+  const fetchFeed = useCallback(async () => {
+    const headers = await getHeaders();
+    const res = await fetch(`${API_URL}/api/clips/feed`, { headers });
+    if (res.ok) setClips(await res.json());
+  }, [getHeaders]);
 
-    setClips((prev) =>
-      prev.map((c) =>
-        c.id === clipId ? { ...c, reactions: updatedReactions } : c,
-      ),
-    );
-  }
+  useEffect(() => {
+    fetchFeed();
+    trackEvent("feed_page_viewed");
+  }, [fetchFeed]);
 
-  function formatTime(seconds: number) {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${String(s).padStart(2, "0")}`;
-  }
-
-  function formatDate(dateStr: string) {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffH = Math.floor(diffMs / (1000 * 60 * 60));
-
-    if (diffH < 1) return "Just now";
-    if (diffH < 24) return `${diffH}h ago`;
-    const diffD = Math.floor(diffH / 24);
-    if (diffD < 7) return `${diffD}d ago`;
-    return d.toLocaleDateString();
-  }
+  const handleReact = async (clipId: string, reaction: string) => {
+    const headers = await getHeaders();
+    await fetch(`${API_URL}/api/clips/${clipId}/react`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ reaction }),
+    });
+    fetchFeed();
+  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Team Feed</h1>
-        <p className="text-muted-foreground">
-          Best moments from your team&apos;s practice sessions.
-        </p>
-      </div>
-
-      {loading && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          Loading...
-        </p>
-      )}
-
-      {!loading && clips.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-lg font-medium">No clips yet</p>
-            <p className="text-sm text-muted-foreground">
-              Save clips from your scorecards to share with the team.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="space-y-4">
-        {clips.map((clip) => {
-          const duration = clip.end_time - clip.start_time;
-          const isPlaying = playingId === clip.id;
-
-          return (
-            <Card key={clip.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-                      {(clip.users?.name ?? "?").charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">
-                        {clip.users?.name ?? "Unknown"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(clip.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {clip.sessions?.scenario_type && (
-                      <Badge variant="outline" className="text-xs">
-                        {clip.sessions.scenario_type.replace("_", " ")}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Audio player */}
-                <div className="flex items-center gap-3 rounded-lg bg-muted p-3">
-                  <button
-                    onClick={() =>
-                      setPlayingId(isPlaying ? null : clip.id)
-                    }
-                    className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground"
-                  >
-                    {isPlaying ? (
-                      <Pause className="size-4" />
-                    ) : (
-                      <Play className="ml-0.5 size-4" />
-                    )}
-                  </button>
-                  <div className="flex-1">
-                    <div className="h-1.5 rounded-full bg-muted-foreground/20">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{ width: isPlaying ? "45%" : "0%" }}
-                      />
-                    </div>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {formatTime(duration)}
-                  </span>
-                </div>
-
-                {/* Coaching note */}
-                {clip.coaching_note && (
-                  <p className="text-sm italic text-muted-foreground">
-                    &ldquo;{clip.coaching_note}&rdquo;
-                  </p>
-                )}
-
-                {/* Reactions */}
-                <div className="flex items-center gap-2">
-                  {REACTIONS.map(({ key, icon: Icon, label }) => {
-                    const count =
-                      (clip.reactions as Record<string, number> | null)?.[
-                        key
-                      ] ?? 0;
-                    return (
-                      <Button
-                        key={key}
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-1 text-xs"
-                        onClick={() => handleReaction(clip.id, key)}
-                      >
-                        <Icon className="size-3.5" />
-                        {count > 0 && (
-                          <span className="font-medium">{count}</span>
-                        )}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {hasMore && clips.length > 0 && (
-        <div className="flex justify-center">
-          <Button variant="outline" onClick={loadMore}>
-            Load More
-          </Button>
+      <FadeIn>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Team Feed</h1>
+          <p className="text-muted-foreground">
+            Highlights and clips shared by your team.
+          </p>
         </div>
+      </FadeIn>
+
+      {clips.length === 0 && (
+        <FadeIn delay={0.1}>
+          <Card className="overflow-hidden">
+            <CardContent className="flex flex-col items-center py-16 text-center">
+              <motion.div
+                className="mb-5 flex size-18 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/12 to-primary/5"
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Play className="size-8 text-primary" />
+              </motion.div>
+              <p className="text-lg font-semibold">No Clips Yet</p>
+              <p className="mt-2 max-w-sm text-sm text-muted-foreground leading-relaxed">
+                After a coaching session, save your best moments as clips to share with
+                the team. React to each other&apos;s highlights to build team spirit.
+              </p>
+            </CardContent>
+          </Card>
+        </FadeIn>
       )}
+
+      <StaggerContainer className="space-y-4">
+        {clips.map((clip) => (
+          <StaggerItem key={clip.id}>
+            <ScaleOnHover scale={1.005}>
+              <Card className="overflow-hidden transition-shadow hover:shadow-md">
+                <CardContent className="space-y-3 pt-5">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="size-9 ring-2 ring-primary/10">
+                      <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-primary text-xs font-semibold">
+                        {clip.users?.name?.charAt(0) ?? "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-semibold">{clip.users?.name ?? "Unknown"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(clip.created_at).toLocaleDateString()} · {Math.round(clip.end_time - clip.start_time)}s clip
+                      </p>
+                    </div>
+                  </div>
+
+                  {(clip.title || clip.ai_note) && (
+                    <p className="text-sm leading-relaxed">{clip.title || clip.ai_note}</p>
+                  )}
+
+                  {/* Reaction bar */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    {Object.entries(REACTION_ICONS).map(([key, Icon]) => {
+                      const count = clip.reaction_counts[key] ?? 0;
+                      const isActive = clip.my_reactions.includes(key);
+                      return (
+                        <motion.div key={key} whileTap={{ scale: 0.9 }}>
+                          <Button
+                            variant={isActive ? "default" : "ghost"}
+                            size="sm"
+                            className={`h-8 gap-1 rounded-full px-2.5 text-xs ${
+                              isActive ? "shadow-sm" : "hover:bg-muted"
+                            }`}
+                            onClick={() => handleReact(clip.id, key)}
+                          >
+                            <Icon className="size-3.5" />
+                            {count > 0 && <span className="tabular-nums">{count}</span>}
+                          </Button>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </ScaleOnHover>
+          </StaggerItem>
+        ))}
+      </StaggerContainer>
     </div>
   );
 }

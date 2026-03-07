@@ -117,10 +117,11 @@ Respond ONLY with the JSON object, no markdown fences.`,
         maxOutputTokens: 4096,
       });
 
-      // Parse and validate
+      // Parse and validate (strip markdown fences if present)
       let scores: ScorecardOutput;
       try {
-        const raw = JSON.parse(text);
+        const cleaned = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+        const raw = JSON.parse(cleaned);
         scores = ScorecardOutputSchema.parse(raw);
       } catch {
         return reply
@@ -166,12 +167,6 @@ Respond ONLY with the JSON object, no markdown fences.`,
 
   app.post<{ Body: z.infer<typeof requestSchema> }>(
     "/api/scorecards/generate",
-    async (request, reply) => handleGenerateScorecard(request, reply),
-  );
-
-  // PRD-compatible alias
-  app.post<{ Body: z.infer<typeof requestSchema> }>(
-    "/api/scorecard/generate",
     async (request, reply) => handleGenerateScorecard(request, reply),
   );
 }

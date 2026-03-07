@@ -1,8 +1,11 @@
 import type { FastifyInstance } from "fastify";
+import { requireAuth } from "../lib/auth.js";
 
 export async function conversationTokenRoutes(fastify: FastifyInstance) {
     // Generate ElevenLabs signed URL for direct WebSocket connection
     fastify.get("/conversation-token", async (request, reply) => {
+        const auth = await requireAuth(request, reply);
+        if (!auth) return;
         const agentId = process.env.ELEVENLABS_AGENT_ID;
         const apiKey = process.env.ELEVENLABS_API_KEY;
 

@@ -1,24 +1,23 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { spring } from "@/components/motion";
 
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.classList.remove("animate-page-enter");
-    // Force reflow to restart animation
-    void el.offsetHeight;
-    el.classList.add("animate-page-enter");
-  }, [pathname]);
 
   return (
-    <div ref={ref} className="animate-page-enter">
-      {children}
-    </div>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={pathname}
+        initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+        exit={{ opacity: 0, y: -4, filter: "blur(2px)" }}
+        transition={{ ...spring.gentle, duration: 0.3 }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
   );
 }

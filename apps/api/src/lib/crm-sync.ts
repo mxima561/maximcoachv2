@@ -102,65 +102,37 @@ export async function syncSalesforce(orgId: string) {
   }
 
   const sfData = (await res.json()) as SalesforceQueryResult;
-  let synced = 0;
 
-  for (const contact of sfData.records) {
-    const name = [contact.FirstName, contact.LastName].filter(Boolean).join(" ");
+  // Batch upsert contacts
+  const rows = sfData.records.map((contact) => ({
+    org_id: orgId,
+    name: [contact.FirstName, contact.LastName].filter(Boolean).join(" "),
+    email: contact.Email,
+    title: contact.Title,
+    company: contact.Company,
+    phone: contact.Phone,
+    industry: contact.Industry,
+    crm_id: contact.Id,
+    crm_source: "salesforce" as const,
+  }));
 
-    // Upsert into leads — latest updated_at wins
-    const { data: existing } = await supabase
-      .from("leads")
-      .select("id, updated_at")
-      .eq("org_id", orgId)
-      .eq("crm_id", contact.Id)
-      .single();
-
-    if (existing) {
-      const existingDate = new Date(existing.updated_at).getTime();
-      const sfDate = new Date(contact.LastModifiedDate).getTime();
-      if (sfDate <= existingDate) continue;
-
-      await supabase
-        .from("leads")
-        .update({
-          name,
-          email: contact.Email,
-          title: contact.Title,
-          company: contact.Company,
-          phone: contact.Phone,
-          industry: contact.Industry,
-          crm_source: "salesforce",
-        })
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("leads").insert({
-        org_id: orgId,
-        name,
-        email: contact.Email,
-        title: contact.Title,
-        company: contact.Company,
-        phone: contact.Phone,
-        industry: contact.Industry,
-        crm_id: contact.Id,
-        crm_source: "salesforce",
-      });
-    }
-    synced++;
-  }
+  const { count: synced } = await supabase
+    .from("leads")
+    .upsert(rows, { onConflict: "org_id,crm_id", ignoreDuplicates: false, count: "exact" });
 
   // Update sync status
   await supabase
     .from("integrations")
     .update({
       last_sync: new Date().toISOString(),
-      records_synced: synced,
+      records_synced: synced ?? 0,
       sync_errors: null,
       status: "connected",
     })
     .eq("org_id", orgId)
     .eq("provider", "salesforce");
 
-  return { synced, total: sfData.totalSize };
+  return { synced: synced ?? 0, total: sfData.totalSize };
 }
 
 export async function syncHubSpot(orgId: string) {
@@ -244,62 +216,36 @@ export async function syncHubSpot(orgId: string) {
     total: number;
   };
 
-  let synced = 0;
-
-  for (const contact of hsData.results) {
+  // Batch upsert contacts
+  const rows = hsData.results.map((contact) => {
     const props = contact.properties;
-    const name = [props.firstname, props.lastname].filter(Boolean).join(" ");
+    return {
+      org_id: orgId,
+      name: [props.firstname, props.lastname].filter(Boolean).join(" "),
+      email: props.email,
+      title: props.jobtitle,
+      company: props.company,
+      phone: props.phone,
+      industry: props.industry,
+      crm_id: contact.id,
+      crm_source: "hubspot" as const,
+    };
+  });
 
-    const { data: existing } = await supabase
-      .from("leads")
-      .select("id, updated_at")
-      .eq("org_id", orgId)
-      .eq("crm_id", contact.id)
-      .single();
-
-    if (existing) {
-      const existingDate = new Date(existing.updated_at).getTime();
-      const hsDate = new Date(props.hs_lastmodifieddate ?? 0).getTime();
-      if (hsDate <= existingDate) continue;
-
-      await supabase
-        .from("leads")
-        .update({
-          name,
-          email: props.email,
-          title: props.jobtitle,
-          company: props.company,
-          phone: props.phone,
-          industry: props.industry,
-          crm_source: "hubspot",
-        })
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("leads").insert({
-        org_id: orgId,
-        name,
-        email: props.email,
-        title: props.jobtitle,
-        company: props.company,
-        phone: props.phone,
-        industry: props.industry,
-        crm_id: contact.id,
-        crm_source: "hubspot",
-      });
-    }
-    synced++;
-  }
+  const { count: synced } = await supabase
+    .from("leads")
+    .upsert(rows, { onConflict: "org_id,crm_id", ignoreDuplicates: false, count: "exact" });
 
   await supabase
     .from("integrations")
     .update({
       last_sync: new Date().toISOString(),
-      records_synced: synced,
+      records_synced: synced ?? 0,
       sync_errors: null,
       status: "connected",
     })
     .eq("org_id", orgId)
     .eq("provider", "hubspot");
 
-  return { synced, total: hsData.total };
+  return { synced: synced ?? 0, total: hsData.total };
 }

@@ -13,6 +13,12 @@ import {
   LogOut,
   ChevronsLeft,
   ChevronsRight,
+  Trophy,
+  Swords,
+  Flame,
+  Dumbbell,
+  FileText,
+  Play,
 } from "lucide-react";
 import {
   Sidebar,
@@ -37,20 +43,32 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
+import { motion } from "framer-motion";
 
 const NAV_GROUPS = [
   {
     label: "Main",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Drills", href: "/drills", icon: Dumbbell },
       { title: "Simulations", href: "/simulations/new", icon: Mic },
       { title: "Scenarios", href: "/scenarios", icon: Radar },
+    ],
+  },
+  {
+    label: "Compete",
+    items: [
+      { title: "Leaderboards", href: "/leaderboards", icon: Trophy },
+      { title: "Challenges", href: "/challenges", icon: Flame },
+      { title: "Head-to-Head", href: "/h2h", icon: Swords },
     ],
   },
   {
     label: "Data",
     items: [
       { title: "Sessions", href: "/sessions", icon: History },
+      { title: "Transcripts", href: "/transcripts", icon: FileText },
+      { title: "Team Feed", href: "/feed", icon: Play },
     ],
   },
   {
@@ -86,24 +104,26 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="px-4 py-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[oklch(0.60_0.26_310)] text-primary-foreground font-bold text-sm shadow-md shadow-primary/20">
             M
           </div>
           {!isCollapsed && (
-            <span className="text-lg font-semibold tracking-tight">
+            <span className="text-lg font-bold tracking-tight gradient-text">
               MaximaCoach
             </span>
           )}
         </Link>
       </SidebarHeader>
 
-      <Separator className="mx-4 w-auto" />
+      <Separator className="mx-4 w-auto opacity-50" />
 
-      <SidebarContent className="px-2 py-2">
+      <SidebarContent className="px-2 py-3">
         {NAV_GROUPS.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
+              {group.label}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
@@ -116,10 +136,20 @@ export function AppSidebar() {
                         asChild
                         isActive={isActive}
                         tooltip={item.title}
+                        className="relative"
                       >
                         <Link href={item.href}>
-                          <item.icon className="size-4" />
-                          <span>{item.title}</span>
+                          {isActive && (
+                            <motion.div
+                              layoutId="sidebar-active"
+                              className="absolute inset-0 rounded-md bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/15"
+                              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                            />
+                          )}
+                          <item.icon className={`size-4 relative z-10 ${isActive ? "text-primary" : ""}`} />
+                          <span className={`relative z-10 ${isActive ? "text-primary font-medium" : ""}`}>
+                            {item.title}
+                          </span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -147,18 +177,18 @@ export function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
 
-        <Separator className="my-2" />
+        <Separator className="my-2 opacity-50" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton className="w-full cursor-pointer">
-              <Avatar className="size-6">
-                <AvatarFallback className="bg-primary/10 text-primary text-xs">
+              <Avatar className="size-7">
+                <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5 text-primary text-xs font-semibold">
                   {userInitial}
                 </AvatarFallback>
               </Avatar>
               {!isCollapsed && (
-                <span className="truncate text-sm">{userName}</span>
+                <span className="truncate text-sm font-medium">{userName}</span>
               )}
             </SidebarMenuButton>
           </DropdownMenuTrigger>

@@ -33,8 +33,9 @@ const PersonaOutputSchema = z.object({
     .array(z.string())
     .describe("2-4 business pain points they experience"),
   decision_criteria: z
-    .array(z.string())
-    .describe("Key factors they consider when making purchasing decisions"),
+    .union([z.array(z.string()), z.string()])
+    .transform((val) => (typeof val === "string" ? val.split(",").map((s) => s.trim()) : val))
+    .describe("Key factors they consider when making purchasing decisions (array of strings)"),
   emotional_state: z
     .string()
     .describe(
@@ -296,10 +297,6 @@ export async function personaRoutes(app: FastifyInstance) {
     async (request, reply) => handleGeneratePersona(request, reply),
   );
 
-  app.post<{ Body: z.infer<typeof requestSchema> }>(
-    "/api/persona/generate",
-    async (request, reply) => handleGeneratePersona(request, reply),
-  );
 }
 
 function buildPrompt(
@@ -353,7 +350,7 @@ Return JSON with:
 - communication_style: how they communicate
 - likely_objections: array of 3-5 realistic objections
 - pain_points: array of 2-4 business pain points
-- decision_criteria: key purchasing factors
+- decision_criteria: array of 2-4 key purchasing factors (as JSON array of strings)
 - emotional_state: current disposition
 - time_pressure_level: "low", "medium", or "high"
 - background_summary: 2-3 sentence summary

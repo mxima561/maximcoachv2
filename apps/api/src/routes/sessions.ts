@@ -22,6 +22,7 @@ export async function sessionRoutes(app: FastifyInstance) {
 
     const parsed = CreateSessionSchema.safeParse(request.body);
     if (!parsed.success) {
+      request.log.error({ body: request.body, issues: parsed.error.issues }, "Session creation validation failed");
       return sendValidationError(reply, parsed.error);
     }
 
@@ -142,11 +143,6 @@ export async function sessionRoutes(app: FastifyInstance) {
     async (request, reply) => handleCreateSession(request, reply),
   );
 
-  // PRD-compatible route
-  app.post(
-    "/api/sessions/create",
-    async (request, reply) => handleCreateSession(request, reply),
-  );
 }
 
 /**

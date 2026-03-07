@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Square, Mic, MicOff, PhoneOff, AlertCircle } from "lucide-react";
+import { Mic, PhoneOff, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,9 +18,8 @@ import { Conversation } from "@elevenlabs/client";
 import type { TranscriptMessage } from "@/components/simulation-transcript";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-// Module-level singleton to survive React Strict Mode double-mount & HMR
-let activeConversation: Conversation | null = null;
+import { motion, AnimatePresence } from "framer-motion";
+import { spring } from "@/components/motion";
 
 function buildPersonaPrompt(persona: any, scenario: string): string {
   if (!persona) return "";
@@ -44,17 +43,16 @@ function buildPersonaPrompt(persona: any, scenario: string): string {
     ? persona.likely_objections.join("; ")
     : persona.objections || persona.likely_objections || "";
 
-  // Construct the prompt carefully
   return `
     You are ${name}, ${role} at ${company}.
     Your tone is ${tone}.
-    
+
     Context: ${context}
-    
+
     Background: ${persona.background_summary || persona.background || "No background provided."}
     Pain Points: ${painPoints}
     Objections: ${objections}
-    
+
     Instructions:
     - Act naturally according to your role and tone.
     - Keep responses concise (spoken conversation).
@@ -91,15 +89,14 @@ export default function SimulationPage() {
 
   const sessionStartedRef = useRef(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const conversationRef = useRef<Conversation | null>(null);
 
-  // Auto-scroll transcript
   useEffect(() => {
     if (transcriptRef.current) {
       transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Timer
   useEffect(() => {
     const timer = setInterval(() => {
       setElapsedSeconds((s) => s + 1);
@@ -107,7 +104,6 @@ export default function SimulationPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch session data
   useEffect(() => {
     async function fetchSessionData() {
       try {
@@ -130,35 +126,33 @@ export default function SimulationPage() {
 
         setPersonaData(session.personas.persona_json);
         setScenarioType(session.scenario_type);
-
-        // Try to get name from persona_json, fallback to AI Buyer
         const pName = session.personas.persona_json?.name || "AI Buyer";
         setPersonaName(pName);
-
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching session:", err);
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "Unknown error");
       }
     }
 
     fetchSessionData();
   }, [sessionId]);
 
-  // Start conversation when persona data is loaded
   useEffect(() => {
     if (!personaData || !scenarioType || sessionStartedRef.current) return;
     sessionStartedRef.current = true;
 
     async function startConversation() {
       try {
-        // Clear any previous error
         setError(null);
 
-        console.log("Requesting microphone access...");
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("Acquiring microphone stream...");
+        try {
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (micErr) {
+          console.warn("Mic access failed:", micErr);
+        }
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-        console.log("Fetching conversation token from:", apiUrl);
         const tokenResponse = await fetch(`${apiUrl}/conversation-token`);
 
         if (!tokenResponse.ok) {
@@ -166,42 +160,32 @@ export default function SimulationPage() {
         }
 
         const { signed_url } = await tokenResponse.json();
-        console.log("Starting ElevenLabs session...");
 
-        // Safety cleanup if existing session exists
-        if (activeConversation) {
+        if (conversationRef.current) {
           try {
-            await activeConversation.endSession();
+            await conversationRef.current.endSession();
           } catch (e) {
             console.warn("Error cleaning up previous session:", e);
           }
-          activeConversation = null;
+          conversationRef.current = null;
         }
 
         const personaPrompt = buildPersonaPrompt(personaData, scenarioType);
         const firstMsg = getFirstMessage(scenarioType, personaData.name || "Alex");
 
-        console.log("Using Persona Prompt:", personaPrompt);
-        console.log("Using First Message:", firstMsg);
-
         const conv = await Conversation.startSession({
           signedUrl: signed_url,
-          // Attempt to override agent configuration
           overrides: {
             agent: {
-              prompt: {
-                prompt: personaPrompt,
-              },
+              prompt: { prompt: personaPrompt },
               firstMessage: firstMsg,
             },
           },
           onConnect: () => {
-            console.log("ElevenLabs: Connected!");
             setStatus("connected");
             setError(null);
           },
-          onDisconnect: (details) => {
-            console.log("ElevenLabs: Disconnected", details);
+          onDisconnect: () => {
             setStatus("disconnected");
           },
           onMessage: (message) => {
@@ -215,7 +199,6 @@ export default function SimulationPage() {
             setMessages((prev) => [...prev, transcriptMsg]);
           },
           onModeChange: (mode) => {
-            console.log("ElevenLabs mode:", mode.mode);
             setIsSpeaking(mode.mode === "speaking");
           },
           onError: (err) => {
@@ -225,32 +208,36 @@ export default function SimulationPage() {
           },
         });
 
-        activeConversation = conv;
-        console.log("Session started successfully, ID:", conv.getId());
-      } catch (err: any) {
+        conversationRef.current = conv;
+      } catch (err: unknown) {
         console.error("Failed to start conversation:", err);
-        setError(err.message || "Failed to start conversation");
+        setError(err instanceof Error ? err.message : "Failed to start conversation");
         setStatus("error");
-        sessionStartedRef.current = false; // Allow retry
+        sessionStartedRef.current = false;
       }
     }
 
     startConversation();
+
+    return () => {
+      if (conversationRef.current) {
+        conversationRef.current.endSession().catch(() => {});
+        conversationRef.current = null;
+      }
+    };
   }, [personaData, scenarioType]);
 
   async function handleEndSession() {
-    if (activeConversation) {
-      await activeConversation.endSession();
-      activeConversation = null;
+    if (conversationRef.current) {
+      await conversationRef.current.endSession();
+      conversationRef.current = null;
     }
     sessionStartedRef.current = false;
     router.push(`/sessions/${sessionId}/scorecard`);
   }
 
   const formatTimer = (secs: number) => {
-    const m = Math.floor(secs / 60)
-      .toString()
-      .padStart(2, "0");
+    const m = Math.floor(secs / 60).toString().padStart(2, "0");
     const s = (secs % 60).toString().padStart(2, "0");
     return `${m}:${s}`;
   };
@@ -269,14 +256,14 @@ export default function SimulationPage() {
     error: "Connection Failed",
   }[status] || "Connecting...";
 
-  const statusColor = {
-    connecting: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  const statusConfig = {
+    connecting: { bg: "bg-amber-500/10 text-amber-600 border-amber-500/20", dot: "bg-amber-500" },
     connected: isSpeaking
-      ? "bg-indigo-100 text-indigo-700 border-indigo-200"
-      : "bg-emerald-100 text-emerald-700 border-emerald-200",
-    disconnected: "bg-gray-100 text-gray-700 border-gray-200",
-    error: "bg-red-100 text-red-700 border-red-200",
-  }[status] || "bg-gray-100 text-gray-700 border-gray-200";
+      ? { bg: "bg-primary/10 text-primary border-primary/20", dot: "bg-primary" }
+      : { bg: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20", dot: "bg-emerald-500" },
+    disconnected: { bg: "bg-muted text-muted-foreground border-border", dot: "bg-muted-foreground" },
+    error: { bg: "bg-red-500/10 text-red-600 border-red-500/20", dot: "bg-red-500" },
+  }[status] || { bg: "bg-muted text-muted-foreground border-border", dot: "bg-muted-foreground" };
 
   function formatTime(iso: string): string {
     const d = new Date(iso);
@@ -289,90 +276,103 @@ export default function SimulationPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col gap-6 lg:flex-row">
-      <style jsx>{`
-        @keyframes orb-pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.05); opacity: 0.9; }
-        }
-        @keyframes orb-speak {
-          0%, 100% { transform: scale(1); }
-          25% { transform: scale(1.1); }
-          50% { transform: scale(0.95); }
-          75% { transform: scale(1.05); }
-        }
-        @keyframes ring-rotate {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-         .orb-idle { animation: orb-pulse 3s ease-in-out infinite; }
-         .orb-speaking { animation: orb-speak 0.8s ease-in-out infinite; }
-         .ring-spin { animation: ring-rotate 20s linear infinite; }
-      `}</style>
-
+    <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 lg:flex-row">
       {/* Main Call Area */}
-      <Card className="relative flex flex-1 flex-col items-center justify-center overflow-hidden border-border bg-white p-6 shadow-sm dark:bg-gray-950">
-        <div className="flex w-full items-start justify-between">
-          <Badge variant="outline" className={`gap-2 px-3 py-1.5 text-sm font-normal border ${statusColor}`}>
-            <div className={`size-2 rounded-full ${status === 'connected' ? 'bg-emerald-500 animate-pulse' :
-                status === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
-              }`} />
+      <Card className="relative flex flex-1 flex-col items-center justify-center overflow-hidden p-6">
+        {/* Top bar */}
+        <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
+          <Badge variant="outline" className={`gap-2 rounded-full px-3 py-1.5 text-sm font-medium border ${statusConfig.bg}`}>
+            <span className="relative flex size-2">
+              {status === 'connected' && (
+                <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${statusConfig.dot} opacity-75`} />
+              )}
+              <span className={`relative inline-flex size-2 rounded-full ${statusConfig.dot}`} />
+            </span>
             {statusText}
           </Badge>
 
-          <div className="font-mono text-xl font-medium text-gray-600 dark:text-gray-300">
+          <div className="font-mono text-xl font-bold text-foreground/70 tabular-nums">
             {formatTimer(elapsedSeconds)}
           </div>
         </div>
 
-        {/* Branding Light Mode Orb */}
-        <div className="relative my-auto flex items-center justify-center">
-          {/* Outer Ring */}
-          <div className={`absolute size-80 rounded-full border border-indigo-100 opacity-60 dark:border-indigo-900/30 ${isSpeaking ? 'scale-110 opacity-40' : 'scale-100'} transition-all duration-500`} />
+        {/* Orb */}
+        <div className="relative flex items-center justify-center my-auto">
+          {/* Outermost ring */}
+          <motion.div
+            className="absolute size-80 rounded-full border border-primary/10"
+            animate={{
+              scale: isSpeaking ? [1, 1.08, 1] : 1,
+              opacity: isSpeaking ? [0.3, 0.6, 0.3] : 0.3,
+            }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
 
-          {/* Middle Ring with Spin */}
-          <div className={`absolute size-64 rounded-full border border-dashed border-indigo-200 dark:border-indigo-800/50 ring-spin ${isSpeaking ? 'opacity-80' : 'opacity-40'}`} />
+          {/* Dashed ring */}
+          <motion.div
+            className="absolute size-64 rounded-full border border-dashed border-primary/20"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          />
 
-          {/* Inner Glow */}
-          <div className={`absolute size-48 rounded-full bg-indigo-500/5 blur-3xl dark:bg-indigo-500/10 ${isSpeaking ? 'scale-150' : 'scale-100'} transition-all duration-300`} />
+          {/* Glow */}
+          <motion.div
+            className="absolute size-48 rounded-full bg-primary/5 blur-3xl"
+            animate={{
+              scale: isSpeaking ? [1, 1.5, 1] : [1, 1.1, 1],
+            }}
+            transition={{ duration: isSpeaking ? 0.8 : 3, repeat: Infinity }}
+          />
 
-          {/* Core Orb */}
-          <div
-            className={`relative flex size-40 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-2xl shadow-indigo-200 dark:shadow-indigo-900/50 ${isSpeaking ? 'orb-speaking' : 'orb-idle'}`}
+          {/* Core orb */}
+          <motion.div
+            className="relative flex size-40 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[oklch(0.60_0.26_310)] shadow-2xl shadow-primary/20"
+            animate={
+              isSpeaking
+                ? { scale: [1, 1.08, 0.96, 1.04, 1] }
+                : { scale: [1, 1.04, 1] }
+            }
+            transition={{
+              duration: isSpeaking ? 0.8 : 3,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
           >
-            {/* Inner Highlight */}
-            <div className="absolute left-[25%] top-[20%] size-16 rounded-full bg-white/10 blur-sm" />
-
+            {/* Highlight */}
+            <div className="absolute left-[25%] top-[18%] size-16 rounded-full bg-white/10 blur-sm" />
             <Mic className={`size-12 text-white ${status === 'connected' ? 'opacity-100' : 'opacity-50'}`} />
-          </div>
+          </motion.div>
         </div>
 
-        <div className="mt-8 flex flex-col items-center gap-4">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-50">
-            {personaName}
-          </h2>
-          <p className="text-muted-foreground">{scenarioLabel}</p>
+        {/* Bottom info */}
+        <div className="flex flex-col items-center gap-3">
+          <h2 className="text-2xl font-bold">{personaName}</h2>
+          <p className="text-sm text-muted-foreground">{scenarioLabel}</p>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-              <AlertCircle className="size-4" />
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 rounded-xl bg-red-500/5 border border-red-500/15 px-4 py-2.5 text-sm text-red-600"
+            >
+              <AlertCircle className="size-4 shrink-0" />
               <span>{error}</span>
               <Button
                 variant="link"
                 size="sm"
-                className="h-auto p-0 text-red-700 underline dark:text-red-300"
+                className="h-auto p-0 text-red-700 underline"
                 onClick={() => window.location.reload()}
               >
                 Retry
               </Button>
-            </div>
+            </motion.div>
           )}
 
-          <div className="mt-4 flex gap-4">
+          <div className="mt-3 flex gap-3">
             <Dialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="destructive" size="lg" className="px-8 shadow-sm">
-                  <PhoneOff className="mr-2 size-4" />
+                <Button variant="destructive" size="lg" className="rounded-xl px-8 shadow-lg shadow-destructive/15 gap-2">
+                  <PhoneOff className="size-4" />
                   End Session
                 </Button>
               </DialogTrigger>
@@ -384,10 +384,7 @@ export default function SimulationPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setEndDialogOpen(false)}
-                  >
+                  <Button variant="ghost" onClick={() => setEndDialogOpen(false)}>
                     Cancel
                   </Button>
                   <Button variant="destructive" onClick={handleEndSession}>
@@ -398,7 +395,7 @@ export default function SimulationPage() {
             </Dialog>
 
             {status !== 'connected' && status !== 'connecting' && !error && (
-              <Button onClick={() => window.location.reload()} variant="outline">
+              <Button onClick={() => window.location.reload()} variant="outline" className="rounded-xl">
                 Restart
               </Button>
             )}
@@ -407,46 +404,57 @@ export default function SimulationPage() {
       </Card>
 
       {/* Transcript Sidebar */}
-      <Card className="flex h-full w-full flex-col border-border bg-gray-50/50 shadow-sm dark:bg-gray-900/50 lg:w-96">
-        <div className="flex items-center justify-between border-b bg-white p-4 dark:bg-gray-950">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-50">Transcript</h3>
+      <Card className="flex h-full w-full flex-col lg:w-[400px]">
+        <div className="flex items-center justify-between border-b px-5 py-4">
+          <h3 className="font-semibold">Transcript</h3>
           {status === 'connected' && (
-            <Badge variant="secondary" className="flex gap-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400">
+            <Badge variant="secondary" className="flex gap-1.5 rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10">
               <span className="relative flex size-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
               </span>
               LIVE
             </Badge>
           )}
         </div>
 
-        <div ref={transcriptRef} className="flex-1 space-y-4 overflow-y-auto p-4">
+        <div ref={transcriptRef} className="flex-1 space-y-3 overflow-y-auto p-4">
           {messages.length === 0 && (
             <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
-              <Mic className="mb-2 size-8 opacity-20" />
-              <p>Conversation will appear here...</p>
+              <motion.div
+                animate={{ y: [0, -4, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <Mic className="mb-3 size-8 opacity-20" />
+              </motion.div>
+              <p className="text-sm">Conversation will appear here...</p>
             </div>
           )}
 
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${msg.role === "user"
-                    ? "rounded-br-sm bg-indigo-600 text-white"
-                    : "rounded-bl-sm bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-100"
-                  }`}
+          <AnimatePresence>
+            {messages.map((msg) => (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={spring.gentle}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                <p className="leading-relaxed">{msg.content}</p>
-                <p className={`mt-1 text-[10px] opacity-70`}>
-                  {formatTime(msg.timestamp)}
-                </p>
-              </div>
-            </div>
-          ))}
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                    msg.role === "user"
+                      ? "rounded-br-md bg-gradient-to-br from-primary to-primary/90 text-white"
+                      : "rounded-bl-md bg-muted/60 text-foreground"
+                  }`}
+                >
+                  <p className="leading-relaxed">{msg.content}</p>
+                  <p className="mt-1 text-[10px] opacity-60">
+                    {formatTime(msg.timestamp)}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </Card>
     </div>

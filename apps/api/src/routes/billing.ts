@@ -77,8 +77,8 @@ const UsageCheckSchema = z.object({
 });
 
 export async function billingRoutes(app: FastifyInstance) {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    app.log.warn("STRIPE_SECRET_KEY not set — billing routes disabled");
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    app.log.warn("STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET not set — billing routes disabled");
     return;
   }
 

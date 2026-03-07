@@ -13,7 +13,14 @@ import { conversationTokenRoutes } from "./routes/conversation-token.js";
 import { trialRoutes } from "./routes/trial.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
-import { startWorkers, getQueueHealth } from "./lib/queues.js";
+import { gamificationRoutes } from "./routes/gamification.js";
+import { drillRoutes } from "./routes/drills.js";
+import { transcriptRoutes } from "./routes/transcripts.js";
+import { clipRoutes } from "./routes/clips.js";
+import { h2hRoutes } from "./routes/h2h.js";
+import { reportRoutes } from "./routes/reports.js";
+import { notificationRoutes } from "./routes/notifications.js";
+import { startWorkers, stopWorkers, getQueueHealth } from "./lib/queues.js";
 import { registerRateLimit } from "./lib/rate-limit.js";
 
 // Initialize Sentry
@@ -75,34 +82,24 @@ await app.register(cors, {
 
 await registerRateLimit(app);
 
-// Sentry request context tracking
-app.addHook("onRequest", async (request, reply) => {
-  // Start a new span for performance tracking
-  const transaction = (Sentry as unknown as {
-    startTransaction?: (context: Record<string, unknown>) => {
-      setHttpStatus: (code: number) => void;
-      finish: () => void;
-    };
-  }).startTransaction?.({
+// Sentry request context tracking using modern startSpan API
+app.addHook("onRequest", async (request) => {
+  const span = Sentry.startInactiveSpan({
     op: "http.server",
     name: `${request.method} ${request.routeOptions.url || request.url}`,
-    data: {
-      method: request.method,
-      url: request.url,
-      headers: request.headers,
+    attributes: {
+      "http.method": request.method,
+      "http.url": request.url,
     },
   });
-
-  // Attach transaction to request for later use
-  (request as any).sentryTransaction = transaction;
+  (request as any).sentrySpan = span;
 });
 
 app.addHook("onResponse", async (request, reply) => {
-  // Finish the transaction
-  const transaction = (request as any).sentryTransaction;
-  if (transaction) {
-    transaction.setHttpStatus(reply.statusCode);
-    transaction.finish();
+  const span = (request as any).sentrySpan;
+  if (span) {
+    span.setAttribute("http.status_code", reply.statusCode);
+    span.end();
   }
 });
 await app.register(personaRoutes);
@@ -115,6 +112,13 @@ await app.register(conversationTokenRoutes);
 await app.register(trialRoutes);
 await app.register(sessionRoutes);
 await app.register(onboardingRoutes);
+await app.register(gamificationRoutes);
+await app.register(drillRoutes);
+await app.register(transcriptRoutes);
+await app.register(clipRoutes);
+await app.register(h2hRoutes);
+await app.register(reportRoutes);
+await app.register(notificationRoutes);
 
 // Sentry error handler
 app.setErrorHandler((error, request, reply) => {
@@ -122,7 +126,6 @@ app.setErrorHandler((error, request, reply) => {
   const statusCode = typeof err.statusCode === "number" ? err.statusCode : 500;
   // Extract user info from request if available
   const userId = request.headers["x-user-id"] as string;
-  const authorization = request.headers.authorization;
 
   // Capture exception with full context
   Sentry.captureException(error, {
@@ -147,11 +150,11 @@ app.setErrorHandler((error, request, reply) => {
     level: statusCode < 500 ? "warning" : "error",
   });
 
-  // Finish transaction if exists
-  const transaction = (request as any).sentryTransaction;
-  if (transaction) {
-    transaction.setHttpStatus(statusCode);
-    transaction.finish();
+  // Finish span if exists
+  const span = (request as any).sentrySpan;
+  if (span) {
+    span.setAttribute("http.status_code", statusCode);
+    span.end();
   }
 
   // Log locally
@@ -175,6 +178,17 @@ app.get("/health", async () => {
 
 // Start BullMQ workers
 startWorkers();
+
+// Graceful shutdown
+const shutdown = async (signal: string) => {
+  console.log(`[server] ${signal} received — shutting down gracefully`);
+  await stopWorkers();
+  await app.close();
+  process.exit(0);
+};
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 try {
   await app.listen({ port: PORT, host: "0.0.0.0" });
